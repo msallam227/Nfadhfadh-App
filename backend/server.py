@@ -1153,7 +1153,7 @@ async def admin_update_article(article_id: str, article: ArticleUpdate, admin: d
     if not existing:
         raise HTTPException(status_code=404, detail="Article not found")
     
-    update_data = {k: v for k, v in article.dict().items() if v is not None}
+    update_data = {k: v for k, v in article.model_dump().items() if v is not None}
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     await db.articles.update_one({"id": article_id}, {"$set": update_data})
