@@ -88,14 +88,16 @@ const AdminDashboard = () => {
     if (!silent) setLoading(true);
     setRefreshing(true);
     try {
-      const [analyticsRes, usersRes, subsRes] = await Promise.all([
+      const [analyticsRes, usersRes, subsRes, articlesRes] = await Promise.all([
         axios.get(`${API}/admin/analytics`),
         axios.get(`${API}/admin/users`),
-        axios.get(`${API}/admin/subscriptions`)
+        axios.get(`${API}/admin/subscriptions`),
+        axios.get(`${API}/admin/articles`)
       ]);
       setAnalytics(analyticsRes.data);
       setUsers(usersRes.data.users || []);
       setSubscriptions(subsRes.data);
+      setArticles(articlesRes.data.articles || []);
       if (!silent) setLoading(false);
     } catch (error) {
       console.error('Error fetching admin data:', error);
