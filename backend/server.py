@@ -590,6 +590,7 @@ async def update_notification_settings(settings: NotificationSettings, current_u
         "enabled": settings.enabled,
         "reminder_time": settings.reminder_time,
         "timezone": settings.timezone,
+        "email": settings.email,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -600,6 +601,132 @@ async def update_notification_settings(settings: NotificationSettings, current_u
     )
     
     return {"message": "Notification settings updated", "settings": settings_doc}
+
+# ==================== EMAIL REMINDERS ====================
+
+async def send_reminder_email(to_email: str, username: str, language: str = "en"):
+    """Send a check-in reminder email via SendGrid"""
+    if not SENDGRID_API_KEY:
+        logger.warning("SendGrid API key not configured")
+        return False
+    
+    subject = "🌟 Time for your daily check-in!" if language == "en" else "🌟 حان وقت تسجيلك اليومي!"
+    
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #F8FAFC; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="width: 60px; height: 60px; background: #0F4C81; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 28px; color: white; font-weight: bold;">ن</span>
+                </div>
+            </div>
+            <h2 style="color: #0F4C81; text-align: center;">{"Hello" if language == "en" else "مرحباً"}, {username}!</h2>
+            <p style="color: #64748B; text-align: center; font-size: 16px; line-height: 1.6;">
+                {"Don't forget to check in with your feelings today. Taking a moment to reflect on your emotions can help improve your mental wellness." if language == "en" else "لا تنسَ تسجيل مشاعرك اليوم. أخذ لحظة للتفكير في مشاعرك يمكن أن يساعد في تحسين صحتك النفسية."}
+            </p>
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="https://wellness-hub-438.preview.emergentagent.com" 
+                   style="background: #0F4C81; color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold; display: inline-block;">
+                    {"Check In Now" if language == "en" else "سجّل الآن"}
+                </a>
+            </div>
+            <p style="color: #94A3B8; text-align: center; font-size: 12px; margin-top: 30px;">
+                {"You're receiving this because you enabled email reminders in Nfadhfadh." if language == "en" else "أنت تتلقى هذا لأنك فعّلت تذكيرات البريد الإلكتروني في نفضفض."}
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    try:
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        message = Mail(
+            from_email=SENDER_EMAIL,
+            to_emails=to_email,
+            subject=subject,
+            html_content=html_content
+        )
+        response = sg.send(message)
+        logger.info(f"Reminder email sent to {to_email}, status: {response.status_code}")
+        return response.status_code == 202
+    except Exception as e:
+        logger.error(f"Failed to send reminder email: {e}")
+        return False
+
+@api_router.post("/email/test-reminder")
+async def send_test_reminder(request: SendTestEmailRequest, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    """Send a test reminder email to verify the setup"""
+    if not SENDGRID_API_KEY:
+        raise HTTPException(status_code=503, detail="Email service not configured. Please add SENDGRID_API_KEY to enable email reminders.")
+    
+    language = current_user.get("language", "en")
+    username = current_user.get("username", "User")
+    
+    background_tasks.add_task(send_reminder_email, request.email, username, language)
+    
+    return {"message": "Test reminder email queued for delivery", "email": request.email}
+
+@api_router.put("/email/reminder-settings")
+async def update_email_reminder_settings(settings: EmailReminderSettings, current_user: dict = Depends(get_current_user)):
+    """Update email reminder settings for a user"""
+    settings_doc = {
+        "user_id": current_user["id"],
+        "email": settings.email,
+        "enabled": settings.enabled,
+        "reminder_time": settings.reminder_time,
+        "timezone": settings.timezone,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.email_reminders.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": settings_doc},
+        upsert=True
+    )
+    
+    return {"message": "Email reminder settings updated", "settings": settings_doc}
+
+@api_router.get("/email/reminder-settings")
+async def get_email_reminder_settings(current_user: dict = Depends(get_current_user)):
+    """Get user's email reminder settings"""
+    settings = await db.email_reminders.find_one(
+        {"user_id": current_user["id"]}, {"_id": 0}
+    )
+    
+    if not settings:
+        return {
+            "user_id": current_user["id"],
+            "email": "",
+            "enabled": False,
+            "reminder_time": "09:00",
+            "timezone": "UTC"
+        }
+    
+    return settings
+
+@api_router.post("/admin/send-bulk-reminders")
+async def admin_send_bulk_reminders(background_tasks: BackgroundTasks, admin: dict = Depends(get_admin_user)):
+    """Admin endpoint to trigger bulk reminder emails to all users with email reminders enabled"""
+    if not SENDGRID_API_KEY:
+        raise HTTPException(status_code=503, detail="Email service not configured")
+    
+    # Get all users with email reminders enabled
+    reminders = await db.email_reminders.find({"enabled": True}, {"_id": 0}).to_list(1000)
+    
+    sent_count = 0
+    for reminder in reminders:
+        user = await db.users.find_one({"id": reminder["user_id"]}, {"_id": 0})
+        if user and reminder.get("email"):
+            background_tasks.add_task(
+                send_reminder_email, 
+                reminder["email"], 
+                user.get("username", "User"),
+                user.get("language", "en")
+            )
+            sent_count += 1
+    
+    return {"message": f"Queued {sent_count} reminder emails for delivery", "total_enabled": len(reminders)}
 
 # ==================== DIARY ROUTES ====================
 
