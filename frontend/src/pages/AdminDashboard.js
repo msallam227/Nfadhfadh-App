@@ -8,12 +8,16 @@ import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
+import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { 
   Users, Activity, BookOpen, MessageCircle, 
   Download, LogOut, BarChart3, PieChart,
   TrendingUp, Globe, CreditCard, Eye, X,
-  Smile, Calendar, RefreshCw, Trash2
+  Smile, Calendar, RefreshCw, Trash2, Plus,
+  FileText, Edit, Mail, Send
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -23,6 +27,11 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const COLORS = ['#0F4C81', '#89CFF0', '#F4E4C1', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6'];
+
+const ARTICLE_CATEGORIES = [
+  'mental health', 'anxiety', 'depression', 'stress', 'relationships',
+  'self-care', 'mindfulness', 'therapy', 'wellness', 'other'
+];
 
 const AdminDashboard = () => {
   const { t, language, toggleLanguage } = useLanguage();
