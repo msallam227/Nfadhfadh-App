@@ -781,8 +781,21 @@ class ArticleCreate(BaseModel):
     title: str = Field(..., min_length=5)
     summary: str = Field(..., min_length=10)
     content: str = Field(..., min_length=20)
-    category: str = "mental health"
+    author: str = Field(default="Nfadhfadh Team")
+    category: str = Field(default="mental health")
+    tags: List[str] = Field(default=[])
+    published_date: Optional[str] = None  # ISO date string
     image_url: Optional[str] = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d"
+
+class ArticleUpdate(BaseModel):
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    content: Optional[str] = None
+    author: Optional[str] = None
+    category: Optional[str] = None
+    tags: Optional[List[str]] = None
+    published_date: Optional[str] = None
+    image_url: Optional[str] = None
 
 async def fetch_pubmed_articles(search_term: str = "mental health", max_results: int = 20):
     """Fetch mental health articles from PubMed - searches by title"""
@@ -971,15 +984,49 @@ async def admin_create_article(article: ArticleCreate, admin: dict = Depends(get
         "title": article.title,
         "summary": article.summary,
         "content": article.content,
+        "author": article.author,
         "category": article.category,
+        "tags": article.tags or [],
+        "published_date": article.published_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "image_url": article.image_url or "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d",
-        "source": "Nfadhfadh Admin",
+        "source": "Nfadhfadh",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
     await db.articles.insert_one(article_doc)
     
     return {"message": "Article created successfully", "article": {k: v for k, v in article_doc.items() if k != "_id"}}
+
+@api_router.get("/admin/articles")
+async def admin_get_articles(admin: dict = Depends(get_admin_user)):
+    """Get all admin-created articles"""
+    articles = await db.articles.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"articles": articles, "total": len(articles)}
+
+@api_router.put("/admin/articles/{article_id}")
+async def admin_update_article(article_id: str, article: ArticleUpdate, admin: dict = Depends(get_admin_user)):
+    """Update an existing article (Admin only)"""
+    existing = await db.articles.find_one({"id": article_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Article not found")
+    
+    update_data = {k: v for k, v in article.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.articles.update_one({"id": article_id}, {"$set": update_data})
+    
+    updated = await db.articles.find_one({"id": article_id}, {"_id": 0})
+    return {"message": "Article updated successfully", "article": updated}
+
+@api_router.delete("/admin/articles/{article_id}")
+async def admin_delete_article(article_id: str, admin: dict = Depends(get_admin_user)):
+    """Delete an article (Admin only)"""
+    existing = await db.articles.find_one({"id": article_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Article not found")
+    
+    await db.articles.delete_one({"id": article_id})
+    return {"message": "Article deleted successfully"}
 
 @api_router.get("/admin/articles")
 async def admin_get_articles(admin: dict = Depends(get_admin_user)):
