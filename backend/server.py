@@ -165,16 +165,17 @@ async def get_admin_user(credentials: HTTPAuthorizationCredentials = Depends(sec
 # ==================== PRICING ====================
 
 PRICING_TIERS = {
-    "standard": {"price": 5.00, "countries": ["syria", "jordan", "egypt", "morocco", "iraq"]},
+    "standard": {"price": 5.00, "countries": ["syria", "jordan", "egypt", "morocco", "iraq", "lebanon", "palestine", "yemen", "sudan", "tunisia", "algeria", "libya"]},
     "premium": {"price": 15.00, "countries": ["saudi arabia", "uae", "qatar", "kuwait", "bahrain", "oman"]}
 }
 
 def get_price_for_country(country: str) -> tuple:
-    country_lower = country.lower()
+    country_lower = country.lower().strip()
     for tier, data in PRICING_TIERS.items():
         if country_lower in data["countries"]:
             return tier, data["price"]
-    return "premium", 15.00  # Default to premium
+    # Default: $10 for all other countries worldwide
+    return "international", 10.00
 
 # ==================== AUTH ROUTES ====================
 
