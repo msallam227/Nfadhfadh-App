@@ -13,7 +13,7 @@ import {
   Users, Activity, BookOpen, MessageCircle, 
   Download, LogOut, BarChart3, PieChart,
   TrendingUp, Globe, CreditCard, Eye, X,
-  Smile, Calendar
+  Smile, Calendar, RefreshCw
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
