@@ -72,7 +72,13 @@ const AdminDashboard = () => {
       toast.error(language === 'ar' ? 'فشل تحميل البيانات' : 'Failed to load data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = () => {
+    fetchData();
+    toast.success(language === 'ar' ? 'تم تحديث البيانات' : 'Data refreshed');
   };
 
   const fetchUserData = async (userId) => {
