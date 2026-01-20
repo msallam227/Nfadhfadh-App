@@ -49,6 +49,25 @@ const AdminDashboard = () => {
   const [activeUserTab, setActiveUserTab] = useState('checkins');
   const [deletingUser, setDeletingUser] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Article management state
+  const [articles, setArticles] = useState([]);
+  const [showArticleForm, setShowArticleForm] = useState(false);
+  const [editingArticle, setEditingArticle] = useState(null);
+  const [articleForm, setArticleForm] = useState({
+    title: '',
+    summary: '',
+    content: '',
+    author: 'Nfadhfadh Team',
+    category: 'mental health',
+    tags: '',
+    published_date: new Date().toISOString().split('T')[0],
+    image_url: ''
+  });
+  const [articleSubmitting, setArticleSubmitting] = useState(false);
+  
+  // Email reminder state
+  const [sendingReminders, setSendingReminders] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) {
