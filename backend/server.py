@@ -776,65 +776,24 @@ import re
 PUBMED_SEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 PUBMED_FETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
 
-# Search terms mapping for emotions
-EMOTION_SEARCH_TERMS = {
-    "anxiety": "anxiety disorder treatment coping",
-    "sadness": "depression sadness mental health support",
-    "happiness": "happiness wellbeing positive psychology",
-    "joy": "joy positive emotions mental wellness",
-    "anger": "anger management emotional regulation",
-    "fear": "fear phobia anxiety treatment",
-    "stress": "stress management relaxation techniques",
-    "calm": "mindfulness meditation calm",
-    "love": "relationships attachment emotional bonding",
-    "loneliness": "loneliness social isolation support",
-    "hope": "hope resilience positive psychology",
-    "depression": "depression treatment therapy support",
-    "mindfulness": "mindfulness meditation mental health",
-    "self-care": "self care mental health wellness",
-    "sleep": "sleep mental health insomnia",
-    "therapy": "psychotherapy counseling mental health",
-    "wellness": "mental wellness emotional health",
-    "relationships": "healthy relationships psychology",
-}
+# Article model for admin-created articles
+class ArticleCreate(BaseModel):
+    title: str = Field(..., min_length=5)
+    summary: str = Field(..., min_length=10)
+    content: str = Field(..., min_length=20)
+    category: str = "mental health"
+    image_url: Optional[str] = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d"
 
-# Curated articles database
-CURATED_ARTICLES = {
-    "en": [
-        {"id": "c1", "title": "Understanding and Managing Anxiety", "summary": "Learn effective strategies to cope with anxiety in daily life", "content": "Anxiety is one of the most common mental health challenges. This article explores evidence-based techniques including deep breathing, cognitive restructuring, and gradual exposure therapy. Understanding your triggers is the first step toward managing anxiety effectively.", "category": "anxiety", "image_url": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b", "source": "Nfadhfadh Wellness"},
-        {"id": "c2", "title": "The Science of Happiness", "summary": "Discover what research tells us about lasting happiness", "content": "Positive psychology research reveals that happiness isn't just about feeling good—it's about engagement, meaning, and accomplishment. Simple practices like gratitude journaling, acts of kindness, and mindfulness can significantly boost your wellbeing.", "category": "happiness", "image_url": "https://images.unsplash.com/photo-1489710437720-ebb67ec84dd2", "source": "Nfadhfadh Wellness"},
-        {"id": "c3", "title": "Coping with Sadness and Low Mood", "summary": "Healthy ways to process and move through sadness", "content": "Sadness is a natural human emotion. Rather than suppressing it, learning to acknowledge and process sadness can lead to emotional growth. This article covers journaling, social support, physical activity, and when to seek professional help.", "category": "sadness", "image_url": "https://images.unsplash.com/photo-1541199249251-f713e6145474", "source": "Nfadhfadh Wellness"},
-        {"id": "c4", "title": "Stress Management Techniques That Work", "summary": "Evidence-based methods to reduce and manage stress", "content": "Chronic stress affects both mental and physical health. Learn about the relaxation response, time management strategies, boundary setting, and lifestyle changes that can help you build resilience against stress.", "category": "stress", "image_url": "https://images.unsplash.com/photo-1506126613408-eca07ce68773", "source": "Nfadhfadh Wellness"},
-        {"id": "c5", "title": "Building Emotional Resilience", "summary": "Strengthen your ability to bounce back from challenges", "content": "Resilience isn't something you're born with—it's a skill you can develop. This article explores how to build mental toughness through positive self-talk, social connections, self-care practices, and finding meaning in adversity.", "category": "hope", "image_url": "https://images.unsplash.com/photo-1493836512294-502baa1986e2", "source": "Nfadhfadh Wellness"},
-        {"id": "c6", "title": "Mindfulness Meditation for Beginners", "summary": "A simple guide to starting your mindfulness practice", "content": "Mindfulness meditation has been shown to reduce anxiety, improve focus, and enhance emotional regulation. Start with just 5 minutes a day, focusing on your breath and observing your thoughts without judgment.", "category": "calm", "image_url": "https://images.unsplash.com/photo-1508672019048-805c876b67e2", "source": "Nfadhfadh Wellness"},
-        {"id": "c7", "title": "Understanding Your Anger", "summary": "Transform anger into positive change", "content": "Anger is a signal that something needs attention. Learn to identify anger triggers, practice pause techniques, and channel this powerful emotion into constructive action rather than destructive behavior.", "category": "anger", "image_url": "https://images.unsplash.com/photo-1534330207526-8e81f10ec6fc", "source": "Nfadhfadh Wellness"},
-        {"id": "c8", "title": "Overcoming Loneliness", "summary": "Practical steps to feel more connected", "content": "Loneliness is an epidemic affecting people of all ages. This article explores ways to build meaningful connections, including joining communities, volunteering, improving social skills, and the difference between being alone and being lonely.", "category": "loneliness", "image_url": "https://images.unsplash.com/photo-1516575448206-ad4589e62436", "source": "Nfadhfadh Wellness"},
-        {"id": "c9", "title": "The Importance of Sleep for Mental Health", "summary": "How quality sleep impacts your emotional wellbeing", "content": "Sleep and mental health are deeply connected. Poor sleep can worsen anxiety and depression, while mental health issues can disrupt sleep. Learn about sleep hygiene practices and creating a restful environment.", "category": "wellness", "image_url": "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55", "source": "Nfadhfadh Wellness"},
-        {"id": "c10", "title": "Healthy Relationships and Boundaries", "summary": "Building connections while protecting your wellbeing", "content": "Healthy relationships require clear boundaries, effective communication, and mutual respect. Learn how to set boundaries without guilt, communicate your needs, and recognize signs of unhealthy relationship patterns.", "category": "love", "image_url": "https://images.unsplash.com/photo-1529156069898-49953e39b3ac", "source": "Nfadhfadh Wellness"},
-        {"id": "c11", "title": "Dealing with Fear and Phobias", "summary": "Understanding and overcoming your fears", "content": "Fear is a natural protective response, but when it becomes excessive, it can limit your life. This article covers the psychology of fear, exposure therapy principles, and gradual steps to face your fears.", "category": "fear", "image_url": "https://images.unsplash.com/photo-1509909756405-be0199881695", "source": "Nfadhfadh Wellness"},
-        {"id": "c12", "title": "Finding Joy in Everyday Life", "summary": "Simple practices to cultivate daily joy", "content": "Joy doesn't require special circumstances—it can be found in ordinary moments. Learn about savoring experiences, practicing gratitude, engaging in flow activities, and creating joy rituals in your daily routine.", "category": "joy", "image_url": "https://images.unsplash.com/photo-1535295972055-1c762f4483e5", "source": "Nfadhfadh Wellness"},
-    ],
-    "ar": [
-        {"id": "c1_ar", "title": "فهم وإدارة القلق", "summary": "تعلم استراتيجيات فعالة للتعامل مع القلق في الحياة اليومية", "content": "القلق من أكثر تحديات الصحة النفسية شيوعاً. يستكشف هذا المقال تقنيات مبنية على الأدلة بما في ذلك التنفس العميق وإعادة الهيكلة المعرفية والتعرض التدريجي. فهم محفزاتك هو الخطوة الأولى نحو إدارة القلق بفعالية.", "category": "anxiety", "image_url": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b", "source": "نفضفض للعافية"},
-        {"id": "c2_ar", "title": "علم السعادة", "summary": "اكتشف ما تخبرنا به الأبحاث عن السعادة الدائمة", "content": "تكشف أبحاث علم النفس الإيجابي أن السعادة ليست مجرد الشعور بالرضا - إنها تتعلق بالمشاركة والمعنى والإنجاز. ممارسات بسيطة مثل كتابة يوميات الامتنان وأفعال اللطف واليقظة الذهنية يمكن أن تعزز رفاهيتك بشكل كبير.", "category": "happiness", "image_url": "https://images.unsplash.com/photo-1489710437720-ebb67ec84dd2", "source": "نفضفض للعافية"},
-        {"id": "c3_ar", "title": "التعامل مع الحزن", "summary": "طرق صحية لمعالجة الحزن والتعافي منه", "content": "الحزن شعور إنساني طبيعي. بدلاً من قمعه، يمكن أن يؤدي تعلم الاعتراف بالحزن ومعالجته إلى النمو العاطفي. يغطي هذا المقال كتابة اليوميات والدعم الاجتماعي والنشاط البدني ومتى يجب طلب المساعدة المهنية.", "category": "sadness", "image_url": "https://images.unsplash.com/photo-1541199249251-f713e6145474", "source": "نفضفض للعافية"},
-        {"id": "c4_ar", "title": "تقنيات إدارة التوتر", "summary": "أساليب مبنية على الأدلة لتقليل وإدارة التوتر", "content": "التوتر المزمن يؤثر على الصحة النفسية والجسدية. تعرف على استجابة الاسترخاء واستراتيجيات إدارة الوقت ووضع الحدود والتغييرات في نمط الحياة التي يمكن أن تساعدك على بناء المرونة ضد التوتر.", "category": "stress", "image_url": "https://images.unsplash.com/photo-1506126613408-eca07ce68773", "source": "نفضفض للعافية"},
-        {"id": "c5_ar", "title": "بناء المرونة العاطفية", "summary": "عزز قدرتك على التعافي من التحديات", "content": "المرونة ليست شيئاً تولد به - إنها مهارة يمكنك تطويرها. يستكشف هذا المقال كيفية بناء القوة الذهنية من خلال الحديث الإيجابي مع النفس والعلاقات الاجتماعية وممارسات الرعاية الذاتية وإيجاد المعنى في الشدائد.", "category": "hope", "image_url": "https://images.unsplash.com/photo-1493836512294-502baa1986e2", "source": "نفضفض للعافية"},
-        {"id": "c6_ar", "title": "التأمل الذهني للمبتدئين", "summary": "دليل بسيط لبدء ممارسة اليقظة الذهنية", "content": "أظهرت الدراسات أن التأمل الذهني يقلل القلق ويحسن التركيز ويعزز التنظيم العاطفي. ابدأ بخمس دقائق فقط يومياً، مع التركيز على تنفسك ومراقبة أفكارك دون حكم.", "category": "calm", "image_url": "https://images.unsplash.com/photo-1508672019048-805c876b67e2", "source": "نفضفض للعافية"},
-        {"id": "c7_ar", "title": "فهم غضبك", "summary": "حول الغضب إلى تغيير إيجابي", "content": "الغضب إشارة إلى أن شيئاً ما يحتاج إلى اهتمام. تعلم تحديد محفزات الغضب وممارسة تقنيات التوقف وتوجيه هذه المشاعر القوية إلى عمل بناء بدلاً من السلوك المدمر.", "category": "anger", "image_url": "https://images.unsplash.com/photo-1534330207526-8e81f10ec6fc", "source": "نفضفض للعافية"},
-        {"id": "c8_ar", "title": "التغلب على الوحدة", "summary": "خطوات عملية للشعور بمزيد من الترابط", "content": "الوحدة وباء يؤثر على الناس من جميع الأعمار. يستكشف هذا المقال طرق بناء علاقات ذات معنى، بما في ذلك الانضمام إلى المجتمعات والتطوع وتحسين المهارات الاجتماعية.", "category": "loneliness", "image_url": "https://images.unsplash.com/photo-1516575448206-ad4589e62436", "source": "نفضفض للعافية"},
-    ]
-}
-
-async def fetch_pubmed_articles(search_term: str = "mental health", max_results: int = 10):
-    """Fetch mental health articles from PubMed"""
+async def fetch_pubmed_articles(search_term: str = "mental health", max_results: int = 20):
+    """Fetch mental health articles from PubMed - searches by title"""
     articles = []
     
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20)) as session:
+            # Search in title field specifically
             search_params = {
                 "db": "pubmed",
-                "term": f"({search_term})[Title/Abstract] AND (mental health OR psychology OR therapy)",
+                "term": f"({search_term}[Title]) AND (mental health OR psychology OR therapy OR wellness)",
                 "retmax": max_results,
                 "sort": "relevance",
                 "retmode": "json"
@@ -842,6 +801,7 @@ async def fetch_pubmed_articles(search_term: str = "mental health", max_results:
             
             async with session.get(PUBMED_SEARCH_URL, params=search_params) as response:
                 if response.status != 200:
+                    logger.error(f"PubMed search failed: {response.status}")
                     return articles
                     
                 search_data = await response.json()
@@ -867,17 +827,17 @@ async def fetch_pubmed_articles(search_term: str = "mental health", max_results:
                     article_data = results.get(pmid, {})
                     if article_data and isinstance(article_data, dict):
                         title = article_data.get("title", "")
-                        title = re.sub(r'<[^>]+>', '', title)
+                        title = re.sub(r'<[^>]+>', '', title)  # Remove HTML tags
                         
                         if title:
                             articles.append({
                                 "id": f"pubmed_{pmid}",
-                                "title": title[:200],
-                                "summary": f"Published in {article_data.get('fulljournalname', 'PubMed')}. {article_data.get('sortfirstauthor', '')}",
+                                "title": title[:300],
+                                "summary": f"Published in {article_data.get('fulljournalname', 'PubMed')}. Authors: {article_data.get('sortfirstauthor', 'N/A')}",
                                 "content": title,
-                                "category": search_term.split()[0].lower(),
+                                "category": "research",
                                 "image_url": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d",
-                                "source": "PubMed Research",
+                                "source": "PubMed",
                                 "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
                                 "published": article_data.get("pubdate", "")
                             })
@@ -890,49 +850,43 @@ async def fetch_pubmed_articles(search_term: str = "mental health", max_results:
 async def get_articles(
     search: Optional[str] = None,
     page: int = 1,
-    limit: int = 10,
+    limit: int = 12,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get articles with search and pagination for infinite scroll"""
-    lang = current_user.get("language", "en")
+    """Get articles with search by title and pagination"""
     all_articles = []
     
-    # Get curated articles
-    curated = CURATED_ARTICLES.get(lang, CURATED_ARTICLES["en"])
+    # Get admin-created articles from database
+    admin_articles = await db.articles.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
     
-    # If searching, filter and fetch from PubMed
+    # If searching, filter admin articles by title and fetch from PubMed
     if search:
         search_lower = search.lower().strip()
         
-        # Filter curated articles by search term
-        filtered_curated = [
-            a for a in curated 
-            if search_lower in a["title"].lower() 
-            or search_lower in a["category"].lower()
-            or search_lower in a.get("summary", "").lower()
+        # Filter admin articles by title
+        filtered_admin = [
+            a for a in admin_articles 
+            if search_lower in a.get("title", "").lower()
         ]
-        all_articles.extend(filtered_curated)
+        all_articles.extend(filtered_admin)
         
-        # Get PubMed search term
-        pubmed_term = EMOTION_SEARCH_TERMS.get(search_lower, search)
-        
-        # Fetch from PubMed
-        pubmed_articles = await fetch_pubmed_articles(pubmed_term, 15)
+        # Fetch from PubMed with title search
+        pubmed_articles = await fetch_pubmed_articles(search, 20)
         all_articles.extend(pubmed_articles)
     else:
-        # No search - return curated articles + some PubMed
-        all_articles.extend(curated)
+        # No search - return admin articles + general PubMed articles
+        all_articles.extend(admin_articles)
         
         # Fetch general mental health articles from PubMed
-        pubmed_articles = await fetch_pubmed_articles("mental health wellness", 10)
+        pubmed_articles = await fetch_pubmed_articles("mental health treatment", 15)
         all_articles.extend(pubmed_articles)
     
-    # Remove duplicates
+    # Remove duplicates by title
     seen_titles = set()
     unique_articles = []
     for article in all_articles:
-        title_key = article["title"].lower()[:50]
-        if title_key not in seen_titles:
+        title_key = article.get("title", "").lower()[:50]
+        if title_key and title_key not in seen_titles:
             seen_titles.add(title_key)
             unique_articles.append(article)
     
@@ -953,45 +907,33 @@ async def get_articles(
 
 @api_router.get("/articles/search-suggestions")
 async def get_search_suggestions(current_user: dict = Depends(get_current_user)):
-    """Get search suggestions/categories"""
+    """Get search suggestions based on common mental health topics"""
     lang = current_user.get("language", "en")
     
     suggestions = {
         "en": [
             {"term": "anxiety", "label": "Anxiety"},
-            {"term": "happiness", "label": "Happiness"},
-            {"term": "sadness", "label": "Sadness"},
-            {"term": "stress", "label": "Stress"},
             {"term": "depression", "label": "Depression"},
-            {"term": "mindfulness", "label": "Mindfulness"},
-            {"term": "anger", "label": "Anger"},
-            {"term": "fear", "label": "Fear"},
-            {"term": "loneliness", "label": "Loneliness"},
-            {"term": "hope", "label": "Hope"},
-            {"term": "joy", "label": "Joy"},
-            {"term": "calm", "label": "Calm"},
-            {"term": "love", "label": "Love & Relationships"},
-            {"term": "sleep", "label": "Sleep"},
-            {"term": "self-care", "label": "Self-Care"},
+            {"term": "stress", "label": "Stress"},
             {"term": "therapy", "label": "Therapy"},
+            {"term": "mindfulness", "label": "Mindfulness"},
+            {"term": "sleep", "label": "Sleep"},
+            {"term": "trauma", "label": "Trauma"},
+            {"term": "self-esteem", "label": "Self-Esteem"},
+            {"term": "relationships", "label": "Relationships"},
+            {"term": "wellness", "label": "Wellness"},
         ],
         "ar": [
             {"term": "anxiety", "label": "القلق"},
-            {"term": "happiness", "label": "السعادة"},
-            {"term": "sadness", "label": "الحزن"},
-            {"term": "stress", "label": "التوتر"},
             {"term": "depression", "label": "الاكتئاب"},
-            {"term": "mindfulness", "label": "اليقظة الذهنية"},
-            {"term": "anger", "label": "الغضب"},
-            {"term": "fear", "label": "الخوف"},
-            {"term": "loneliness", "label": "الوحدة"},
-            {"term": "hope", "label": "الأمل"},
-            {"term": "joy", "label": "الفرح"},
-            {"term": "calm", "label": "الهدوء"},
-            {"term": "love", "label": "الحب والعلاقات"},
+            {"term": "stress", "label": "التوتر"},
+            {"term": "therapy", "label": "العلاج"},
+            {"term": "mindfulness", "label": "اليقظة"},
             {"term": "sleep", "label": "النوم"},
-            {"term": "self-care", "label": "الرعاية الذاتية"},
-            {"term": "therapy", "label": "العلاج النفسي"},
+            {"term": "trauma", "label": "الصدمة"},
+            {"term": "self-esteem", "label": "تقدير الذات"},
+            {"term": "relationships", "label": "العلاقات"},
+            {"term": "wellness", "label": "العافية"},
         ]
     }
     
@@ -999,26 +941,80 @@ async def get_search_suggestions(current_user: dict = Depends(get_current_user))
 
 @api_router.get("/articles/{article_id}")
 async def get_article(article_id: str, current_user: dict = Depends(get_current_user)):
-    lang = current_user.get("language", "en")
-    
-    # Check curated articles
-    curated = CURATED_ARTICLES.get(lang, CURATED_ARTICLES["en"])
-    for article in curated:
-        if article["id"] == article_id:
-            return article
+    # Check admin-created articles first
+    admin_article = await db.articles.find_one({"id": article_id}, {"_id": 0})
+    if admin_article:
+        return admin_article
     
     # Check if it's a PubMed article
     if article_id.startswith("pubmed_"):
         pmid = article_id.replace("pubmed_", "")
         return {
             "id": article_id,
-            "title": "View on PubMed",
-            "content": "This article is available on PubMed.",
+            "title": "PubMed Research Article",
+            "content": "This is a peer-reviewed research article. Click the link below to read the full study on PubMed.",
             "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-            "source": "PubMed"
+            "source": "PubMed",
+            "category": "research"
         }
     
     raise HTTPException(status_code=404, detail="Article not found")
+
+# ==================== ADMIN ARTICLE MANAGEMENT ====================
+
+@api_router.post("/admin/articles")
+async def admin_create_article(article: ArticleCreate, admin: dict = Depends(get_admin_user)):
+    """Create a new article (Admin only)"""
+    article_id = str(uuid.uuid4())
+    article_doc = {
+        "id": article_id,
+        "title": article.title,
+        "summary": article.summary,
+        "content": article.content,
+        "category": article.category,
+        "image_url": article.image_url or "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d",
+        "source": "Nfadhfadh Admin",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.articles.insert_one(article_doc)
+    
+    return {"message": "Article created successfully", "article": {k: v for k, v in article_doc.items() if k != "_id"}}
+
+@api_router.get("/admin/articles")
+async def admin_get_articles(admin: dict = Depends(get_admin_user)):
+    """Get all admin-created articles"""
+    articles = await db.articles.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"articles": articles, "total": len(articles)}
+
+@api_router.put("/admin/articles/{article_id}")
+async def admin_update_article(article_id: str, article: ArticleCreate, admin: dict = Depends(get_admin_user)):
+    """Update an existing article (Admin only)"""
+    existing = await db.articles.find_one({"id": article_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Article not found")
+    
+    update_doc = {
+        "title": article.title,
+        "summary": article.summary,
+        "content": article.content,
+        "category": article.category,
+        "image_url": article.image_url or existing.get("image_url"),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.articles.update_one({"id": article_id}, {"$set": update_doc})
+    
+    return {"message": "Article updated successfully", "article_id": article_id}
+
+@api_router.delete("/admin/articles/{article_id}")
+async def admin_delete_article(article_id: str, admin: dict = Depends(get_admin_user)):
+    """Delete an article (Admin only)"""
+    result = await db.articles.delete_one({"id": article_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Article not found")
+    
+    return {"message": "Article deleted successfully", "article_id": article_id}
 
 # ==================== PAYMENT ROUTES ====================
 
