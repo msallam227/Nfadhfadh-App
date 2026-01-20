@@ -39,6 +39,10 @@ STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
 # LLM Configuration
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
+# SendGrid Configuration
+SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'noreply@nfadhfadh.com')
+
 # Create the main app
 app = FastAPI()
 
