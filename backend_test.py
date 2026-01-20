@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 
 class NfadhfadhAPITester:
-    def __init__(self, base_url="https://bilingual-mood.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://wellness-hub-438.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.user_token = None
         self.admin_token = None
@@ -264,7 +264,7 @@ class NfadhfadhAPITester:
         
         # Create checkout session
         payment_data = {
-            "origin_url": "https://bilingual-mood.preview.emergentagent.com"
+            "origin_url": "https://wellness-hub-438.preview.emergentagent.com"
         }
         
         self.run_test(
