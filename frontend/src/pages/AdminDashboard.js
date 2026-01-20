@@ -399,10 +399,14 @@ const AdminDashboard = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="bg-white rounded-xl p-1 border border-slate-200">
+          <TabsList className="bg-white rounded-xl p-1 border border-slate-200 flex-wrap">
             <TabsTrigger value="users" className="rounded-lg data-[state=active]:bg-[#0F4C81] data-[state=active]:text-white">
               <Users className="w-4 h-4 me-2" />
               {t('userManagement')}
+            </TabsTrigger>
+            <TabsTrigger value="articles" className="rounded-lg data-[state=active]:bg-[#0F4C81] data-[state=active]:text-white">
+              <FileText className="w-4 h-4 me-2" />
+              {language === 'ar' ? 'المقالات' : 'Articles'}
             </TabsTrigger>
             <TabsTrigger value="subscriptions" className="rounded-lg data-[state=active]:bg-[#0F4C81] data-[state=active]:text-white">
               <CreditCard className="w-4 h-4 me-2" />
