@@ -1,75 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-    margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
-
-code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
-}
-
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
+        --background: 210 40% 98%;
+        --foreground: 222 47% 11%;
         --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
+        --card-foreground: 222 47% 11%;
         --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-    }
-    .dark {
-        --background: 0 0% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
-        --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
+        --popover-foreground: 222 47% 11%;
+        --primary: 209 79% 28%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 199 86% 75%;
+        --secondary-foreground: 209 79% 28%;
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 16% 47%;
+        --accent: 39 68% 85%;
+        --accent-foreground: 209 79% 28%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 209 79% 28%;
+        --radius: 0.75rem;
+        --chart-1: 209 79% 28%;
+        --chart-2: 199 86% 75%;
+        --chart-3: 39 68% 85%;
+        --chart-4: 160 84% 40%;
+        --chart-5: 38 92% 50%;
     }
 }
 
@@ -77,39 +38,115 @@ code {
     * {
         @apply border-border;
     }
+    
+    html {
+        scroll-behavior: smooth;
+    }
+    
     body {
-        @apply bg-background text-foreground;
+        @apply bg-[#F8FAFC] text-slate-900 font-sans antialiased;
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+    
+    html[dir="rtl"] body {
+        @apply font-arabic;
+    }
+    
+    html[dir="rtl"] h1, html[dir="rtl"] h2, html[dir="rtl"] h3, html[dir="rtl"] h4 {
+        font-family: 'Cairo', 'IBM Plex Sans Arabic', sans-serif;
     }
 }
 
-@layer base {
-    [data-debug-wrapper="true"] {
-        display: contents !important;
+@layer components {
+    .glass-card {
+        @apply bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)];
     }
+    
+    .glass-nav {
+        @apply bg-white/80 backdrop-blur-xl border-b border-slate-200/60;
+    }
+    
+    .btn-primary {
+        @apply bg-[#0F4C81] text-white hover:bg-[#0F4C81]/90 rounded-full px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-300 font-medium;
+    }
+    
+    .btn-secondary {
+        @apply bg-[#E0F2FE] text-[#0F4C81] hover:bg-[#BAE6FD] rounded-full px-8 py-3 transition-all duration-300 font-medium;
+    }
+    
+    .card-soft {
+        @apply bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300;
+    }
+    
+    .input-styled {
+        @apply rounded-xl border-slate-200 bg-white/50 focus:ring-2 focus:ring-[#89CFF0] focus:border-transparent h-12 px-4;
+    }
+    
+    .gradient-hero {
+        @apply bg-gradient-to-br from-[#F8FAFC] via-[#E0F2FE] to-[#F0F9FF];
+    }
+    
+    .text-gradient {
+        @apply bg-gradient-to-r from-[#0F4C81] to-[#89CFF0] bg-clip-text text-transparent;
+    }
+}
 
-    [data-debug-wrapper="true"] > * {
-        margin-left: inherit;
-        margin-right: inherit;
-        margin-top: inherit;
-        margin-bottom: inherit;
-        padding-left: inherit;
-        padding-right: inherit;
-        padding-top: inherit;
-        padding-bottom: inherit;
-        column-gap: inherit;
-        row-gap: inherit;
-        gap: inherit;
-        border-left-width: inherit;
-        border-right-width: inherit;
-        border-top-width: inherit;
-        border-bottom-width: inherit;
-        border-left-style: inherit;
-        border-right-style: inherit;
-        border-top-style: inherit;
-        border-bottom-style: inherit;
-        border-left-color: inherit;
-        border-right-color: inherit;
-        border-top-color: inherit;
-        border-bottom-color: inherit;
+@layer utilities {
+    .rtl-space-x-reverse {
+        @apply rtl:space-x-reverse;
     }
+    
+    .animate-delay-100 {
+        animation-delay: 100ms;
+    }
+    
+    .animate-delay-200 {
+        animation-delay: 200ms;
+    }
+    
+    .animate-delay-300 {
+        animation-delay: 300ms;
+    }
+    
+    .animate-delay-400 {
+        animation-delay: 400ms;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #F1F5F9;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+
+/* RTL specific adjustments */
+[dir="rtl"] .rtl-flip {
+    transform: scaleX(-1);
+}
+
+/* Feeling selection animations */
+.feeling-card {
+    @apply transition-all duration-300 cursor-pointer;
+}
+
+.feeling-card:hover {
+    @apply scale-105 shadow-lg;
+}
+
+.feeling-card.selected {
+    @apply ring-2 ring-[#0F4C81] ring-offset-2;
 }
