@@ -7,11 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { ScrollArea } from '../components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { toast } from 'sonner';
 import { 
   Users, Activity, BookOpen, MessageCircle, 
   Download, LogOut, BarChart3, PieChart,
-  TrendingUp, Globe
+  TrendingUp, Globe, CreditCard, Eye, X,
+  Smile, Calendar
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -29,7 +31,12 @@ const AdminDashboard = () => {
   
   const [analytics, setAnalytics] = useState(null);
   const [users, setUsers] = useState([]);
+  const [subscriptions, setSubscriptions] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [userDataLoading, setUserDataLoading] = useState(false);
+  const [activeUserTab, setActiveUserTab] = useState('checkins');
 
   useEffect(() => {
     if (!isAdmin) {
@@ -41,18 +48,37 @@ const AdminDashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [analyticsRes, usersRes] = await Promise.all([
+      const [analyticsRes, usersRes, subsRes] = await Promise.all([
         axios.get(`${API}/admin/analytics`),
-        axios.get(`${API}/admin/users`)
+        axios.get(`${API}/admin/users`),
+        axios.get(`${API}/admin/subscriptions`)
       ]);
       setAnalytics(analyticsRes.data);
       setUsers(usersRes.data.users || []);
+      setSubscriptions(subsRes.data);
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast.error(language === 'ar' ? 'فشل تحميل البيانات' : 'Failed to load data');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchUserData = async (userId) => {
+    setUserDataLoading(true);
+    try {
+      const response = await axios.get(`${API}/admin/user/${userId}/full`);
+      setUserData(response.data);
+    } catch (error) {
+      toast.error(language === 'ar' ? 'فشل تحميل بيانات المستخدم' : 'Failed to load user data');
+    } finally {
+      setUserDataLoading(false);
+    }
+  };
+
+  const handleViewUser = (user) => {
+    setSelectedUser(user);
+    fetchUserData(user.id);
   };
 
   const handleExport = async (type) => {
@@ -96,24 +122,18 @@ const AdminDashboard = () => {
           </div>
           
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleLanguage}
-              className="flex items-center gap-2"
-              data-testid="admin-language-toggle"
-            >
-              <Globe className="w-4 h-4" />
+            <Button variant="ghost" size="sm" onClick={toggleLanguage} data-testid="admin-language-toggle">
+              <Globe className="w-4 h-4 me-2" />
               {language === 'en' ? 'AR' : 'EN'}
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleLogout}
-              className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+              className="text-red-600 border-red-200 hover:bg-red-50"
               data-testid="admin-logout-btn"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4 me-2" />
               {t('logout')}
             </Button>
           </div>
@@ -122,72 +142,86 @@ const AdminDashboard = () => {
 
       <main className="container mx-auto px-4 py-8 space-y-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <Card className="card-soft" data-testid="admin-stat-users">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#E0F2FE] flex items-center justify-center">
-                  <Users className="w-6 h-6 text-[#0F4C81]" />
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#E0F2FE] flex items-center justify-center">
+                  <Users className="w-5 h-5 text-[#0F4C81]" />
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">{t('totalUsers')}</p>
-                  <p className="text-2xl font-bold text-slate-900">{analytics?.total_users || 0}</p>
+                  <p className="text-xs text-slate-500">{t('totalUsers')}</p>
+                  <p className="text-xl font-bold text-slate-900">{analytics?.total_users || 0}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="card-soft" data-testid="admin-stat-subscriptions">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#D1FAE5] flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-[#10B981]" />
+          <Card className="card-soft bg-green-50 border-green-200" data-testid="admin-stat-subscriptions">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">{t('activeSubscriptions')}</p>
-                  <p className="text-2xl font-bold text-slate-900">{analytics?.active_subscriptions || 0}</p>
+                  <p className="text-xs text-green-700">{language === 'ar' ? 'المشتركين' : 'Subscribed'}</p>
+                  <p className="text-xl font-bold text-green-800">{subscriptions?.active_subscribers || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-soft bg-amber-50 border-amber-200" data-testid="admin-stat-revenue">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-amber-700">{language === 'ar' ? 'الإيرادات' : 'Revenue'}</p>
+                  <p className="text-xl font-bold text-amber-800">${subscriptions?.total_revenue?.toFixed(0) || 0}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="card-soft" data-testid="admin-stat-checkins">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#FEF3C7] flex items-center justify-center">
-                  <Activity className="w-6 h-6 text-[#F59E0B]" />
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FEF3C7] flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-[#F59E0B]" />
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">{t('totalCheckins')}</p>
-                  <p className="text-2xl font-bold text-slate-900">{analytics?.total_checkins || 0}</p>
+                  <p className="text-xs text-slate-500">{language === 'ar' ? 'التسجيلات' : 'Check-ins'}</p>
+                  <p className="text-xl font-bold text-slate-900">{analytics?.total_checkins || 0}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="card-soft" data-testid="admin-stat-diary">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#FCE7F3] flex items-center justify-center">
-                  <BookOpen className="w-6 h-6 text-[#EC4899]" />
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FCE7F3] flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-[#EC4899]" />
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">{t('totalDiaryEntries')}</p>
-                  <p className="text-2xl font-bold text-slate-900">{analytics?.total_diary_entries || 0}</p>
+                  <p className="text-xs text-slate-500">{language === 'ar' ? 'اليوميات' : 'Diary'}</p>
+                  <p className="text-xl font-bold text-slate-900">{analytics?.total_diary_entries || 0}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="card-soft" data-testid="admin-stat-messages">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-[#EDE9FE] flex items-center justify-center">
-                  <MessageCircle className="w-6 h-6 text-[#8B5CF6]" />
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#EDE9FE] flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5 text-[#8B5CF6]" />
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">{language === 'ar' ? 'الرسائل' : 'Messages'}</p>
-                  <p className="text-2xl font-bold text-slate-900">{analytics?.total_chat_messages || 0}</p>
+                  <p className="text-xs text-slate-500">{language === 'ar' ? 'الرسائل' : 'Messages'}</p>
+                  <p className="text-xl font-bold text-slate-900">{analytics?.total_chat_messages || 0}</p>
                 </div>
               </div>
             </CardContent>
@@ -195,15 +229,19 @@ const AdminDashboard = () => {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="analytics" className="space-y-6">
+        <Tabs defaultValue="users" className="space-y-6">
           <TabsList className="bg-white rounded-xl p-1 border border-slate-200">
-            <TabsTrigger value="analytics" className="rounded-lg data-[state=active]:bg-[#0F4C81] data-[state=active]:text-white">
-              <BarChart3 className="w-4 h-4 me-2" />
-              {t('analytics')}
-            </TabsTrigger>
             <TabsTrigger value="users" className="rounded-lg data-[state=active]:bg-[#0F4C81] data-[state=active]:text-white">
               <Users className="w-4 h-4 me-2" />
               {t('userManagement')}
+            </TabsTrigger>
+            <TabsTrigger value="subscriptions" className="rounded-lg data-[state=active]:bg-[#0F4C81] data-[state=active]:text-white">
+              <CreditCard className="w-4 h-4 me-2" />
+              {language === 'ar' ? 'الاشتراكات' : 'Subscriptions'}
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="rounded-lg data-[state=active]:bg-[#0F4C81] data-[state=active]:text-white">
+              <BarChart3 className="w-4 h-4 me-2" />
+              {t('analytics')}
             </TabsTrigger>
             <TabsTrigger value="export" className="rounded-lg data-[state=active]:bg-[#0F4C81] data-[state=active]:text-white">
               <Download className="w-4 h-4 me-2" />
@@ -211,10 +249,116 @@ const AdminDashboard = () => {
             </TabsTrigger>
           </TabsList>
 
+          {/* Users Tab */}
+          <TabsContent value="users">
+            <Card className="card-soft">
+              <CardHeader>
+                <CardTitle className="text-lg text-slate-800">{t('userManagement')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[500px]">
+                  <div className="space-y-3">
+                    {users.map((user) => (
+                      <div 
+                        key={user.id}
+                        className="p-4 bg-slate-50 rounded-xl flex items-center justify-between hover:bg-slate-100 transition-colors"
+                        data-testid={`admin-user-${user.id}`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-[#0F4C81] flex items-center justify-center text-white font-bold">
+                            {user.username?.charAt(0)?.toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-800">{user.username}</p>
+                            <p className="text-sm text-slate-500">{user.country} • {user.occupation}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-end">
+                            <p className={`text-sm font-medium ${user.subscription_status === 'active' ? 'text-green-600' : 'text-slate-400'}`}>
+                              {user.subscription_status === 'active' ? t('active') : t('inactive')}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {new Date(user.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleViewUser(user)}
+                            className="rounded-lg"
+                            data-testid={`view-user-${user.id}`}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Subscriptions Tab */}
+          <TabsContent value="subscriptions">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="card-soft">
+                <CardHeader>
+                  <CardTitle className="text-lg text-slate-800">
+                    {language === 'ar' ? 'توزيع الاشتراكات' : 'Subscription Tiers'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {subscriptions?.by_tier?.map((tier) => (
+                      <div key={tier.tier} className="p-4 bg-slate-50 rounded-xl">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="font-medium text-slate-800 capitalize">{tier.tier}</p>
+                            <p className="text-sm text-slate-500">{tier.count} {language === 'ar' ? 'مشترك' : 'subscribers'}</p>
+                          </div>
+                          <p className="text-xl font-bold text-green-600">${tier.revenue}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="card-soft">
+                <CardHeader>
+                  <CardTitle className="text-lg text-slate-800">
+                    {language === 'ar' ? 'المشتركين النشطين' : 'Active Subscribers'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[300px]">
+                    <div className="space-y-2">
+                      {subscriptions?.subscribers?.map((sub) => (
+                        <div key={sub.id} className="p-3 bg-green-50 rounded-lg flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-slate-800">{sub.username}</p>
+                            <p className="text-xs text-slate-500">{sub.country}</p>
+                          </div>
+                          <span className="text-sm font-bold text-green-600">${sub.subscription_price}/mo</span>
+                        </div>
+                      ))}
+                      {(!subscriptions?.subscribers || subscriptions.subscribers.length === 0) && (
+                        <p className="text-center text-slate-400 py-8">
+                          {language === 'ar' ? 'لا يوجد مشتركين بعد' : 'No subscribers yet'}
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Mood Distribution Chart */}
               <Card className="card-soft" data-testid="admin-mood-chart">
                 <CardHeader>
                   <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
@@ -246,7 +390,6 @@ const AdminDashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Country Distribution Chart */}
               <Card className="card-soft" data-testid="admin-country-chart">
                 <CardHeader>
                   <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
@@ -267,80 +410,7 @@ const AdminDashboard = () => {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Gender Distribution */}
-              <Card className="card-soft" data-testid="admin-gender-chart">
-                <CardHeader>
-                  <CardTitle className="text-lg text-slate-800">
-                    {language === 'ar' ? 'توزيع الجنس' : 'Gender Distribution'}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPie>
-                        <Pie
-                          data={analytics?.gender_distribution || []}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          dataKey="count"
-                          nameKey="gender"
-                          label={({ gender, count }) => `${t(gender) || gender}: ${count}`}
-                        >
-                          {(analytics?.gender_distribution || []).map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={index === 0 ? '#0F4C81' : '#89CFF0'} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </RechartsPie>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
-          </TabsContent>
-
-          {/* Users Tab */}
-          <TabsContent value="users">
-            <Card className="card-soft">
-              <CardHeader>
-                <CardTitle className="text-lg text-slate-800">{t('userManagement')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[500px]">
-                  <div className="space-y-3">
-                    {users.map((user) => (
-                      <div 
-                        key={user.id}
-                        className="p-4 bg-slate-50 rounded-xl flex items-center justify-between"
-                        data-testid={`admin-user-${user.id}`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-[#0F4C81] flex items-center justify-center text-white font-bold">
-                            {user.username?.charAt(0)?.toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium text-slate-800">{user.username}</p>
-                            <p className="text-sm text-slate-500">
-                              {user.country} • {user.occupation}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-end">
-                          <p className={`text-sm font-medium ${user.subscription_status === 'active' ? 'text-green-600' : 'text-slate-400'}`}>
-                            {user.subscription_status === 'active' ? t('active') : t('inactive')}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            {new Date(user.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Export Tab */}
@@ -356,16 +426,10 @@ const AdminDashboard = () => {
                       <h3 className="font-semibold text-slate-800">
                         {language === 'ar' ? 'تصدير بيانات المستخدمين' : 'Export User Data'}
                       </h3>
-                      <p className="text-sm text-slate-500">
-                        {language === 'ar' ? 'جميع بيانات المستخدمين بصيغة JSON' : 'All user data in JSON format'}
-                      </p>
+                      <p className="text-sm text-slate-500">JSON format</p>
                     </div>
                   </div>
-                  <Button 
-                    onClick={() => handleExport('users')}
-                    className="w-full btn-primary"
-                    data-testid="export-users-btn"
-                  >
+                  <Button onClick={() => handleExport('users')} className="w-full btn-primary" data-testid="export-users-btn">
                     <Download className="w-4 h-4 me-2" />
                     {language === 'ar' ? 'تصدير' : 'Export'}
                   </Button>
@@ -382,16 +446,10 @@ const AdminDashboard = () => {
                       <h3 className="font-semibold text-slate-800">
                         {language === 'ar' ? 'تصدير بيانات المزاج' : 'Export Mood Data'}
                       </h3>
-                      <p className="text-sm text-slate-500">
-                        {language === 'ar' ? 'جميع تسجيلات المزاج بصيغة JSON' : 'All mood check-ins in JSON format'}
-                      </p>
+                      <p className="text-sm text-slate-500">JSON format</p>
                     </div>
                   </div>
-                  <Button 
-                    onClick={() => handleExport('moods')}
-                    className="w-full btn-primary"
-                    data-testid="export-moods-btn"
-                  >
+                  <Button onClick={() => handleExport('moods')} className="w-full btn-primary" data-testid="export-moods-btn">
                     <Download className="w-4 h-4 me-2" />
                     {language === 'ar' ? 'تصدير' : 'Export'}
                   </Button>
@@ -401,6 +459,135 @@ const AdminDashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* User Detail Modal */}
+      <Dialog open={!!selectedUser} onOpenChange={() => { setSelectedUser(null); setUserData(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#0F4C81] flex items-center justify-center text-white font-bold">
+                {selectedUser?.username?.charAt(0)?.toUpperCase()}
+              </div>
+              <div>
+                <p className="text-lg font-bold">{selectedUser?.username}</p>
+                <p className="text-sm text-slate-500 font-normal">{selectedUser?.country} • {selectedUser?.occupation}</p>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          {userDataLoading ? (
+            <div className="py-12 text-center text-slate-500">{t('loading')}</div>
+          ) : userData ? (
+            <div className="mt-4">
+              {/* User Stats */}
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                <div className="p-3 bg-slate-50 rounded-xl text-center">
+                  <p className="text-2xl font-bold text-[#0F4C81]">{userData.mood_checkins?.total || 0}</p>
+                  <p className="text-xs text-slate-500">{language === 'ar' ? 'تسجيلات' : 'Check-ins'}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl text-center">
+                  <p className="text-2xl font-bold text-[#EC4899]">{userData.diary_entries?.total || 0}</p>
+                  <p className="text-xs text-slate-500">{language === 'ar' ? 'يوميات' : 'Diary'}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl text-center">
+                  <p className="text-2xl font-bold text-[#8B5CF6]">{userData.chat_messages?.total || 0}</p>
+                  <p className="text-xs text-slate-500">{language === 'ar' ? 'رسائل' : 'Messages'}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl text-center">
+                  <p className={`text-2xl font-bold ${userData.user?.subscription_status === 'active' ? 'text-green-600' : 'text-slate-400'}`}>
+                    {userData.user?.subscription_status === 'active' ? '✓' : '—'}
+                  </p>
+                  <p className="text-xs text-slate-500">{language === 'ar' ? 'اشتراك' : 'Subscribed'}</p>
+                </div>
+              </div>
+
+              {/* Data Tabs */}
+              <Tabs value={activeUserTab} onValueChange={setActiveUserTab}>
+                <TabsList className="w-full bg-slate-100 rounded-xl p-1">
+                  <TabsTrigger value="checkins" className="flex-1 rounded-lg data-[state=active]:bg-white">
+                    <Smile className="w-4 h-4 me-1" /> {language === 'ar' ? 'التسجيلات' : 'Check-ins'}
+                  </TabsTrigger>
+                  <TabsTrigger value="diary" className="flex-1 rounded-lg data-[state=active]:bg-white">
+                    <BookOpen className="w-4 h-4 me-1" /> {language === 'ar' ? 'اليوميات' : 'Diary'}
+                  </TabsTrigger>
+                  <TabsTrigger value="chats" className="flex-1 rounded-lg data-[state=active]:bg-white">
+                    <MessageCircle className="w-4 h-4 me-1" /> {language === 'ar' ? 'المحادثات' : 'Chats'}
+                  </TabsTrigger>
+                </TabsList>
+
+                <ScrollArea className="h-[350px] mt-4">
+                  <TabsContent value="checkins" className="mt-0">
+                    <div className="space-y-2">
+                      {userData.mood_checkins?.data?.map((checkin, idx) => (
+                        <div key={idx} className="p-3 bg-slate-50 rounded-lg">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-medium text-slate-800 capitalize">{t(checkin.feeling) || checkin.feeling}</span>
+                              {checkin.note && <p className="text-sm text-slate-500 mt-1">{checkin.note}</p>}
+                            </div>
+                            <span className="text-xs text-slate-400">{new Date(checkin.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {(!userData.mood_checkins?.data || userData.mood_checkins.data.length === 0) && (
+                        <p className="text-center text-slate-400 py-8">{language === 'ar' ? 'لا توجد بيانات' : 'No data'}</p>
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="diary" className="mt-0">
+                    <div className="space-y-2">
+                      {userData.diary_entries?.data?.map((entry, idx) => (
+                        <div key={idx} className="p-3 bg-slate-50 rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs text-slate-400">{new Date(entry.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <p className="text-slate-700">{entry.content}</p>
+                          {entry.reflective_question && (
+                            <div className="mt-2 p-2 bg-white rounded border border-slate-200">
+                              <p className="text-xs text-slate-500">{entry.reflective_question}</p>
+                              {entry.reflective_answer && <p className="text-sm text-slate-700 mt-1">{entry.reflective_answer}</p>}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {(!userData.diary_entries?.data || userData.diary_entries.data.length === 0) && (
+                        <p className="text-center text-slate-400 py-8">{language === 'ar' ? 'لا توجد بيانات' : 'No data'}</p>
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="chats" className="mt-0">
+                    <div className="space-y-2">
+                      {userData.chat_messages?.data?.map((msg, idx) => (
+                        <div key={idx} className="p-3 bg-slate-50 rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-xs text-[#0F4C81] font-medium">Session: {msg.session_id?.slice(0, 8)}...</span>
+                            <span className="text-xs text-slate-400">{new Date(msg.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="p-2 bg-[#0F4C81] text-white rounded-lg text-sm">
+                              <span className="text-xs opacity-70">User:</span> {msg.user_message}
+                            </div>
+                            {msg.ai_response && (
+                              <div className="p-2 bg-white border border-slate-200 rounded-lg text-sm">
+                                <span className="text-xs text-slate-400">AI:</span> {msg.ai_response}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {(!userData.chat_messages?.data || userData.chat_messages.data.length === 0) && (
+                        <p className="text-center text-slate-400 py-8">{language === 'ar' ? 'لا توجد بيانات' : 'No data'}</p>
+                      )}
+                    </div>
+                  </TabsContent>
+                </ScrollArea>
+              </Tabs>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
