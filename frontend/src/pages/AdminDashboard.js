@@ -482,6 +482,89 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
+          {/* Articles Tab */}
+          <TabsContent value="articles">
+            <Card className="card-soft">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg text-slate-800">
+                  {language === 'ar' ? 'إدارة المقالات' : 'Article Management'}
+                </CardTitle>
+                <Button 
+                  onClick={() => { resetArticleForm(); setShowArticleForm(true); }}
+                  className="btn-primary"
+                  data-testid="add-article-btn"
+                >
+                  <Plus className="w-4 h-4 me-2" />
+                  {language === 'ar' ? 'إضافة مقال' : 'Add Article'}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[500px]">
+                  <div className="space-y-3">
+                    {articles.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400">
+                        <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>{language === 'ar' ? 'لا توجد مقالات بعد' : 'No articles yet'}</p>
+                        <p className="text-sm">{language === 'ar' ? 'أضف مقالك الأول' : 'Add your first article'}</p>
+                      </div>
+                    ) : (
+                      articles.map((article) => (
+                        <div 
+                          key={article.id}
+                          className="p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors"
+                          data-testid={`admin-article-${article.id}`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-slate-800 truncate">{article.title}</h4>
+                              <p className="text-sm text-slate-500 line-clamp-2 mt-1">{article.summary}</p>
+                              <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                                <span>{article.author}</span>
+                                <span>•</span>
+                                <span>{article.category}</span>
+                                <span>•</span>
+                                <span>{article.published_date || article.created_at?.split('T')[0]}</span>
+                              </div>
+                              {article.tags?.length > 0 && (
+                                <div className="flex gap-1 mt-2 flex-wrap">
+                                  {article.tags.map((tag, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 bg-[#E0F2FE] text-[#0F4C81] text-xs rounded-full">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditArticle(article)}
+                                className="rounded-lg"
+                                data-testid={`edit-article-${article.id}`}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteArticle(article.id)}
+                                className="rounded-lg text-red-600 border-red-200 hover:bg-red-50"
+                                data-testid={`delete-article-${article.id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Subscriptions Tab */}
           <TabsContent value="subscriptions">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
