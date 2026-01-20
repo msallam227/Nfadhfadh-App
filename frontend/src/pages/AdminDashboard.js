@@ -38,6 +38,8 @@ const AdminDashboard = () => {
   const [userData, setUserData] = useState(null);
   const [userDataLoading, setUserDataLoading] = useState(false);
   const [activeUserTab, setActiveUserTab] = useState('checkins');
+  const [deletingUser, setDeletingUser] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (!isAdmin) {
