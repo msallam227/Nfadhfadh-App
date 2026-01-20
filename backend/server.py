@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +7,13 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional, Dict, Any
 import uuid
-from datetime import datetime, timezone
-
+from datetime import datetime, timezone, timedelta
+import jwt
+import bcrypt
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutSessionRequest
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,54 +23,768 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
+# JWT Configuration
+JWT_SECRET = os.environ.get('JWT_SECRET', 'nfadhfadh_secret')
+JWT_ALGORITHM = "HS256"
+
+# Admin credentials
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'msallam227')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Muhammad#01')
+
+# Stripe Configuration
+STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
+
+# LLM Configuration
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+
+# Create the main app
 app = FastAPI()
 
-# Create a router with the /api prefix
+# Create routers
 api_router = APIRouter(prefix="/api")
+security = HTTPBearer()
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
+# ==================== MODELS ====================
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    birthdate: str
+    country: str
+    city: str
+    occupation: str
+    gender: str
+    language: str = "en"
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    username: str
+    birthdate: str
+    country: str
+    city: str
+    occupation: str
+    gender: str
+    language: str
+    subscription_tier: Optional[str] = None
+    subscription_status: str = "inactive"
+    created_at: str
+
+class MoodCheckIn(BaseModel):
+    feeling: str
+    note: Optional[str] = ""
+
+class MoodCheckInResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    feeling: str
+    note: str
+    created_at: str
+
+class DiaryEntry(BaseModel):
+    content: str
+    reflective_question: Optional[str] = None
+    reflective_answer: Optional[str] = None
+
+class DiaryEntryResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    user_id: str
+    content: str
+    reflective_question: Optional[str] = None
+    reflective_answer: Optional[str] = None
+    created_at: str
+
+class ChatMessage(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+
+class ChatMessageResponse(BaseModel):
+    response: str
+    session_id: str
+    disclaimer: str
+
+class LanguageUpdate(BaseModel):
+    language: str
+
+class PaymentRequest(BaseModel):
+    origin_url: str
+
+# ==================== AUTH HELPERS ====================
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
+
+def create_token(user_id: str, is_admin: bool = False) -> str:
+    payload = {
+        "user_id": user_id,
+        "is_admin": is_admin,
+        "exp": datetime.now(timezone.utc) + timedelta(days=7)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("user_id")
+        is_admin = payload.get("is_admin", False)
+        if is_admin:
+            return {"user_id": user_id, "is_admin": True}
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+async def get_admin_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if not payload.get("is_admin"):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# ==================== PRICING ====================
+
+PRICING_TIERS = {
+    "standard": {"price": 5.00, "countries": ["syria", "jordan", "egypt", "morocco", "iraq"]},
+    "premium": {"price": 15.00, "countries": ["saudi arabia", "uae", "qatar", "kuwait", "bahrain", "oman"]}
+}
+
+def get_price_for_country(country: str) -> tuple:
+    country_lower = country.lower()
+    for tier, data in PRICING_TIERS.items():
+        if country_lower in data["countries"]:
+            return tier, data["price"]
+    return "premium", 15.00  # Default to premium
+
+# ==================== AUTH ROUTES ====================
+
+@api_router.post("/auth/register")
+async def register(user: UserCreate):
+    existing = await db.users.find_one({"username": user.username})
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already exists")
     
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    user_id = str(uuid.uuid4())
+    tier, price = get_price_for_country(user.country)
+    
+    user_doc = {
+        "id": user_id,
+        "username": user.username,
+        "password_hash": hash_password(user.password),
+        "birthdate": user.birthdate,
+        "country": user.country,
+        "city": user.city,
+        "occupation": user.occupation,
+        "gender": user.gender,
+        "language": user.language,
+        "subscription_tier": tier,
+        "subscription_status": "inactive",
+        "subscription_price": price,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(user_doc)
+    token = create_token(user_id)
+    
+    return {
+        "token": token,
+        "user": {
+            "id": user_id,
+            "username": user.username,
+            "birthdate": user.birthdate,
+            "country": user.country,
+            "city": user.city,
+            "occupation": user.occupation,
+            "gender": user.gender,
+            "language": user.language,
+            "subscription_tier": tier,
+            "subscription_status": "inactive",
+            "subscription_price": price
+        }
+    }
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+@api_router.post("/auth/login")
+async def login(credentials: UserLogin):
+    user = await db.users.find_one({"username": credentials.username}, {"_id": 0})
+    if not user or not verify_password(credentials.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = create_token(user["id"])
+    return {
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "username": user["username"],
+            "birthdate": user["birthdate"],
+            "country": user["country"],
+            "city": user["city"],
+            "occupation": user["occupation"],
+            "gender": user["gender"],
+            "language": user["language"],
+            "subscription_tier": user.get("subscription_tier"),
+            "subscription_status": user.get("subscription_status", "inactive"),
+            "subscription_price": user.get("subscription_price", 15.00)
+        }
+    }
 
-# Add your routes to the router instead of directly to app
+@api_router.post("/auth/admin/login")
+async def admin_login(credentials: UserLogin):
+    if credentials.username != ADMIN_USERNAME or credentials.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    
+    token = create_token("admin", is_admin=True)
+    return {"token": token, "is_admin": True}
+
+@api_router.get("/auth/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    if current_user.get("is_admin"):
+        return {"is_admin": True, "username": ADMIN_USERNAME}
+    return {
+        "id": current_user["id"],
+        "username": current_user["username"],
+        "birthdate": current_user["birthdate"],
+        "country": current_user["country"],
+        "city": current_user["city"],
+        "occupation": current_user["occupation"],
+        "gender": current_user["gender"],
+        "language": current_user["language"],
+        "subscription_tier": current_user.get("subscription_tier"),
+        "subscription_status": current_user.get("subscription_status", "inactive"),
+        "subscription_price": current_user.get("subscription_price", 15.00)
+    }
+
+@api_router.put("/auth/language")
+async def update_language(data: LanguageUpdate, current_user: dict = Depends(get_current_user)):
+    await db.users.update_one({"id": current_user["id"]}, {"$set": {"language": data.language}})
+    return {"message": "Language updated", "language": data.language}
+
+# ==================== MOOD CHECK-IN ROUTES ====================
+
+FEELINGS = [
+    "happiness", "sadness", "anger", "fear", "anxiety", "stress", "calm", "love",
+    "loneliness", "hope", "disappointment", "frustration", "guilt", "shame",
+    "pride", "jealousy", "thankful", "excitement", "boredom", "confusion"
+]
+
+@api_router.get("/feelings")
+async def get_feelings():
+    return {"feelings": FEELINGS}
+
+@api_router.post("/mood/checkin")
+async def create_mood_checkin(mood: MoodCheckIn, current_user: dict = Depends(get_current_user)):
+    mood_id = str(uuid.uuid4())
+    mood_doc = {
+        "id": mood_id,
+        "user_id": current_user["id"],
+        "feeling": mood.feeling,
+        "note": mood.note or "",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.mood_checkins.insert_one(mood_doc)
+    return {
+        "id": mood_id,
+        "user_id": current_user["id"],
+        "feeling": mood.feeling,
+        "note": mood.note or "",
+        "created_at": mood_doc["created_at"]
+    }
+
+@api_router.get("/mood/checkins")
+async def get_mood_checkins(current_user: dict = Depends(get_current_user)):
+    checkins = await db.mood_checkins.find(
+        {"user_id": current_user["id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return {"checkins": checkins}
+
+@api_router.get("/mood/summary")
+async def get_mood_summary(current_user: dict = Depends(get_current_user)):
+    checkins = await db.mood_checkins.find(
+        {"user_id": current_user["id"]}, {"_id": 0}
+    ).to_list(1000)
+    
+    feeling_counts = {}
+    for checkin in checkins:
+        feeling = checkin["feeling"]
+        feeling_counts[feeling] = feeling_counts.get(feeling, 0) + 1
+    
+    total = len(checkins)
+    return {
+        "total_checkins": total,
+        "feeling_distribution": feeling_counts,
+        "most_common": max(feeling_counts, key=feeling_counts.get) if feeling_counts else None
+    }
+
+# ==================== DIARY ROUTES ====================
+
+REFLECTIVE_QUESTIONS = {
+    "en": [
+        "What are you grateful for today?",
+        "What challenged you today and how did you handle it?",
+        "What made you smile today?",
+        "What would you do differently if you could relive today?",
+        "What are three things you accomplished today?"
+    ],
+    "ar": [
+        "ما الذي تشعر بالامتنان له اليوم؟",
+        "ما الذي تحداك اليوم وكيف تعاملت معه؟",
+        "ما الذي جعلك تبتسم اليوم؟",
+        "ما الذي ستفعله بشكل مختلف لو عشت اليوم مرة أخرى؟",
+        "ما هي ثلاثة أشياء حققتها اليوم؟"
+    ]
+}
+
+@api_router.get("/diary/questions")
+async def get_reflective_questions(current_user: dict = Depends(get_current_user)):
+    lang = current_user.get("language", "en")
+    return {"questions": REFLECTIVE_QUESTIONS.get(lang, REFLECTIVE_QUESTIONS["en"])}
+
+@api_router.post("/diary/entry")
+async def create_diary_entry(entry: DiaryEntry, current_user: dict = Depends(get_current_user)):
+    entry_id = str(uuid.uuid4())
+    entry_doc = {
+        "id": entry_id,
+        "user_id": current_user["id"],
+        "content": entry.content,
+        "reflective_question": entry.reflective_question,
+        "reflective_answer": entry.reflective_answer,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.diary_entries.insert_one(entry_doc)
+    return {
+        "id": entry_id,
+        "user_id": current_user["id"],
+        "content": entry.content,
+        "reflective_question": entry.reflective_question,
+        "reflective_answer": entry.reflective_answer,
+        "created_at": entry_doc["created_at"]
+    }
+
+@api_router.get("/diary/entries")
+async def get_diary_entries(current_user: dict = Depends(get_current_user)):
+    entries = await db.diary_entries.find(
+        {"user_id": current_user["id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return {"entries": entries}
+
+# ==================== VENTING CHAT ROUTES ====================
+
+SYSTEM_PROMPT_EN = """You are a compassionate and supportive emotional wellness companion. Your role is to:
+1. Listen actively and empathetically to the user's feelings
+2. Ask gentle, open-ended questions to help them explore their emotions
+3. Validate their feelings without judgment
+4. NEVER give medical advice, diagnoses, or treatment recommendations
+5. NEVER suggest medication or therapy specifics
+6. If someone mentions self-harm or crisis, gently encourage them to seek professional help
+
+Respond with warmth, understanding, and gentle curiosity. Keep responses conversational and supportive."""
+
+SYSTEM_PROMPT_AR = """أنت رفيق دعم عاطفي رحيم ومتفهم. دورك هو:
+١. الاستماع بنشاط وتعاطف لمشاعر المستخدم
+٢. طرح أسئلة لطيفة ومفتوحة لمساعدتهم على استكشاف مشاعرهم
+٣. التحقق من صحة مشاعرهم دون حكم
+٤. لا تقدم أبدًا نصائح طبية أو تشخيصات أو توصيات علاجية
+٥. لا تقترح أبدًا أدوية أو تفاصيل علاج محددة
+٦. إذا ذكر شخص ما إيذاء النفس أو الأزمة، شجعه بلطف على طلب المساعدة المهنية
+
+استجب بدفء وتفهم وفضول لطيف. اجعل الردود محادثية وداعمة. تحدث باللهجة المصرية."""
+
+DISCLAIMER_EN = "This is not medical advice. For professional mental health support, please consult a licensed healthcare provider."
+DISCLAIMER_AR = "هذا ليس نصيحة طبية. للحصول على دعم نفسي متخصص، يرجى استشارة مقدم رعاية صحية مرخص."
+
+@api_router.post("/chat/message")
+async def send_chat_message(message: ChatMessage, current_user: dict = Depends(get_current_user)):
+    user_lang = current_user.get("language", "en")
+    session_id = message.session_id or str(uuid.uuid4())
+    
+    system_prompt = SYSTEM_PROMPT_AR if user_lang == "ar" else SYSTEM_PROMPT_EN
+    disclaimer = DISCLAIMER_AR if user_lang == "ar" else DISCLAIMER_EN
+    
+    # Get chat history for this session
+    history = await db.chat_messages.find(
+        {"user_id": current_user["id"], "session_id": session_id}, {"_id": 0}
+    ).sort("created_at", 1).to_list(50)
+    
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=session_id,
+            system_message=system_prompt
+        )
+        chat.with_model("openai", "gpt-5.2")
+        
+        # Build context from history
+        context_messages = []
+        for msg in history[-10:]:  # Last 10 messages for context
+            context_messages.append(f"User: {msg['user_message']}")
+            context_messages.append(f"Assistant: {msg['ai_response']}")
+        
+        full_message = message.message
+        if context_messages:
+            context = "\n".join(context_messages)
+            full_message = f"Previous conversation:\n{context}\n\nCurrent message: {message.message}"
+        
+        user_msg = UserMessage(text=full_message)
+        response = await chat.send_message(user_msg)
+        
+        # Save to database
+        chat_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": current_user["id"],
+            "session_id": session_id,
+            "user_message": message.message,
+            "ai_response": response,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.chat_messages.insert_one(chat_doc)
+        
+        return {
+            "response": response,
+            "session_id": session_id,
+            "disclaimer": disclaimer
+        }
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        fallback = "أنا هنا عشان أسمعك. ممكن تقولي أكتر عن اللي بتحس بيه؟" if user_lang == "ar" else "I'm here to listen. Can you tell me more about how you're feeling?"
+        return {
+            "response": fallback,
+            "session_id": session_id,
+            "disclaimer": disclaimer
+        }
+
+@api_router.get("/chat/sessions")
+async def get_chat_sessions(current_user: dict = Depends(get_current_user)):
+    pipeline = [
+        {"$match": {"user_id": current_user["id"]}},
+        {"$group": {"_id": "$session_id", "last_message": {"$last": "$created_at"}, "message_count": {"$sum": 1}}},
+        {"$sort": {"last_message": -1}}
+    ]
+    sessions = await db.chat_messages.aggregate(pipeline).to_list(20)
+    return {"sessions": [{"session_id": s["_id"], "last_message": s["last_message"], "message_count": s["message_count"]} for s in sessions]}
+
+@api_router.get("/chat/history/{session_id}")
+async def get_chat_history(session_id: str, current_user: dict = Depends(get_current_user)):
+    messages = await db.chat_messages.find(
+        {"user_id": current_user["id"], "session_id": session_id}, {"_id": 0}
+    ).sort("created_at", 1).to_list(100)
+    return {"messages": messages}
+
+# ==================== MOOD STRATEGIES ====================
+
+MOOD_STRATEGIES = {
+    "en": {
+        "anxiety": ["Practice deep breathing for 5 minutes", "Write down your worries", "Go for a short walk", "Listen to calming music"],
+        "stress": ["Take a 10-minute break", "Stretch your body", "Drink water and hydrate", "Talk to someone you trust"],
+        "sadness": ["Allow yourself to feel", "Connect with a loved one", "Do something creative", "Watch something that makes you smile"],
+        "anger": ["Count to 10 slowly", "Remove yourself from the situation", "Exercise to release energy", "Write about what's bothering you"],
+        "loneliness": ["Reach out to a friend", "Join an online community", "Adopt a routine", "Practice self-compassion"],
+        "fear": ["Identify what you can control", "Ground yourself with 5 senses", "Talk about your fears", "Focus on the present moment"]
+    },
+    "ar": {
+        "anxiety": ["مارس التنفس العميق لمدة ٥ دقائق", "اكتب مخاوفك", "امشِ لمسافة قصيرة", "استمع لموسيقى هادئة"],
+        "stress": ["خذ استراحة ١٠ دقائق", "قم بتمديد جسمك", "اشرب ماء وترطّب", "تحدث مع شخص تثق به"],
+        "sadness": ["اسمح لنفسك بالشعور", "تواصل مع شخص تحبه", "افعل شيئًا إبداعيًا", "شاهد شيئًا يجعلك تبتسم"],
+        "anger": ["عد ببطء إلى ١٠", "ابتعد عن الموقف", "مارس الرياضة لإطلاق الطاقة", "اكتب عما يزعجك"],
+        "loneliness": ["تواصل مع صديق", "انضم إلى مجتمع عبر الإنترنت", "اتبع روتينًا يوميًا", "مارس التعاطف مع الذات"],
+        "fear": ["حدد ما يمكنك التحكم فيه", "ارتكز على حواسك الخمس", "تحدث عن مخاوفك", "ركز على اللحظة الحالية"]
+    }
+}
+
+@api_router.get("/strategies")
+async def get_strategies(feeling: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    lang = current_user.get("language", "en")
+    strategies = MOOD_STRATEGIES.get(lang, MOOD_STRATEGIES["en"])
+    if feeling and feeling.lower() in strategies:
+        return {"feeling": feeling, "strategies": strategies[feeling.lower()]}
+    return {"strategies": strategies}
+
+# ==================== ARTICLES ====================
+
+# Sample articles (Arabic preferred as requested)
+SAMPLE_ARTICLES = {
+    "ar": [
+        {
+            "id": "1",
+            "title": "كيف تتعامل مع القلق اليومي",
+            "summary": "نصائح عملية للتعامل مع مشاعر القلق في الحياة اليومية",
+            "content": "القلق شعور طبيعي يمر به الجميع. تعلم كيف تتعرف على علامات القلق وكيف تتعامل معها بطرق صحية...",
+            "category": "anxiety",
+            "image_url": "https://images.unsplash.com/photo-1741962839093-5e08a8cc40ae"
+        },
+        {
+            "id": "2",
+            "title": "أهمية النوم الجيد للصحة النفسية",
+            "summary": "كيف يؤثر النوم على مزاجك وصحتك العقلية",
+            "content": "النوم الجيد أساسي للصحة النفسية. تعرف على العلاقة بين النوم والمزاج وكيف تحسن نومك...",
+            "category": "wellness",
+            "image_url": "https://images.unsplash.com/photo-1763258668628-0639a2d40a4a"
+        },
+        {
+            "id": "3",
+            "title": "تمارين التأمل للمبتدئين",
+            "summary": "ابدأ رحلتك في التأمل بهذه التمارين البسيطة",
+            "content": "التأمل يساعد على تهدئة العقل وتقليل التوتر. إليك بعض التمارين السهلة للبدء...",
+            "category": "meditation",
+            "image_url": "https://images.pexels.com/photos/8715954/pexels-photo-8715954.jpeg"
+        },
+        {
+            "id": "4",
+            "title": "بناء علاقات صحية",
+            "summary": "كيف تبني وتحافظ على علاقات إيجابية",
+            "content": "العلاقات الصحية تدعم صحتنا النفسية. تعلم كيف تتواصل بشكل أفضل وتبني روابط قوية...",
+            "category": "relationships",
+            "image_url": "https://images.unsplash.com/photo-1764848084652-66719e701262"
+        }
+    ],
+    "en": [
+        {
+            "id": "1",
+            "title": "How to Deal with Daily Anxiety",
+            "summary": "Practical tips for managing anxiety feelings in daily life",
+            "content": "Anxiety is a natural feeling everyone experiences. Learn how to recognize anxiety signs and deal with them in healthy ways...",
+            "category": "anxiety",
+            "image_url": "https://images.unsplash.com/photo-1741962839093-5e08a8cc40ae"
+        },
+        {
+            "id": "2",
+            "title": "The Importance of Good Sleep for Mental Health",
+            "summary": "How sleep affects your mood and mental health",
+            "content": "Good sleep is essential for mental health. Learn about the relationship between sleep and mood and how to improve your sleep...",
+            "category": "wellness",
+            "image_url": "https://images.unsplash.com/photo-1763258668628-0639a2d40a4a"
+        },
+        {
+            "id": "3",
+            "title": "Meditation Exercises for Beginners",
+            "summary": "Start your meditation journey with these simple exercises",
+            "content": "Meditation helps calm the mind and reduce stress. Here are some easy exercises to get started...",
+            "category": "meditation",
+            "image_url": "https://images.pexels.com/photos/8715954/pexels-photo-8715954.jpeg"
+        },
+        {
+            "id": "4",
+            "title": "Building Healthy Relationships",
+            "summary": "How to build and maintain positive relationships",
+            "content": "Healthy relationships support our mental health. Learn how to communicate better and build strong bonds...",
+            "category": "relationships",
+            "image_url": "https://images.unsplash.com/photo-1764848084652-66719e701262"
+        }
+    ]
+}
+
+@api_router.get("/articles")
+async def get_articles(current_user: dict = Depends(get_current_user)):
+    lang = current_user.get("language", "en")
+    return {"articles": SAMPLE_ARTICLES.get(lang, SAMPLE_ARTICLES["ar"])}
+
+@api_router.get("/articles/{article_id}")
+async def get_article(article_id: str, current_user: dict = Depends(get_current_user)):
+    lang = current_user.get("language", "en")
+    articles = SAMPLE_ARTICLES.get(lang, SAMPLE_ARTICLES["ar"])
+    for article in articles:
+        if article["id"] == article_id:
+            return article
+    raise HTTPException(status_code=404, detail="Article not found")
+
+# ==================== PAYMENT ROUTES ====================
+
+@api_router.post("/payments/create-checkout")
+async def create_checkout(payment: PaymentRequest, request: Request, current_user: dict = Depends(get_current_user)):
+    try:
+        user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        price = user.get("subscription_price", 15.00)
+        tier = user.get("subscription_tier", "premium")
+        
+        host_url = str(request.base_url).rstrip('/')
+        webhook_url = f"{host_url}/api/webhook/stripe"
+        
+        stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+        
+        success_url = f"{payment.origin_url}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
+        cancel_url = f"{payment.origin_url}/payment/cancel"
+        
+        checkout_request = CheckoutSessionRequest(
+            amount=float(price),
+            currency="usd",
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "user_id": current_user["id"],
+                "tier": tier,
+                "type": "subscription"
+            }
+        )
+        
+        session = await stripe_checkout.create_checkout_session(checkout_request)
+        
+        # Store payment transaction
+        payment_doc = {
+            "id": str(uuid.uuid4()),
+            "session_id": session.session_id,
+            "user_id": current_user["id"],
+            "amount": price,
+            "currency": "usd",
+            "tier": tier,
+            "payment_status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.payment_transactions.insert_one(payment_doc)
+        
+        return {"url": session.url, "session_id": session.session_id}
+    except Exception as e:
+        logger.error(f"Payment error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/payments/status/{session_id}")
+async def get_payment_status(session_id: str, request: Request, current_user: dict = Depends(get_current_user)):
+    try:
+        host_url = str(request.base_url).rstrip('/')
+        webhook_url = f"{host_url}/api/webhook/stripe"
+        
+        stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+        status = await stripe_checkout.get_checkout_status(session_id)
+        
+        # Update payment transaction
+        if status.payment_status == "paid":
+            await db.payment_transactions.update_one(
+                {"session_id": session_id},
+                {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            # Update user subscription
+            payment = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+            if payment:
+                await db.users.update_one(
+                    {"id": payment["user_id"]},
+                    {"$set": {"subscription_status": "active"}}
+                )
+        
+        return {
+            "status": status.status,
+            "payment_status": status.payment_status,
+            "amount_total": status.amount_total,
+            "currency": status.currency
+        }
+    except Exception as e:
+        logger.error(f"Payment status error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    try:
+        body = await request.body()
+        signature = request.headers.get("Stripe-Signature")
+        
+        host_url = str(request.base_url).rstrip('/')
+        webhook_url = f"{host_url}/api/webhook/stripe"
+        
+        stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+        webhook_response = await stripe_checkout.handle_webhook(body, signature)
+        
+        if webhook_response.payment_status == "paid":
+            await db.payment_transactions.update_one(
+                {"session_id": webhook_response.session_id},
+                {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            if webhook_response.metadata and "user_id" in webhook_response.metadata:
+                await db.users.update_one(
+                    {"id": webhook_response.metadata["user_id"]},
+                    {"$set": {"subscription_status": "active"}}
+                )
+        
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return {"status": "error", "message": str(e)}
+
+# ==================== ADMIN ROUTES ====================
+
+@api_router.get("/admin/users")
+async def admin_get_users(admin: dict = Depends(get_admin_user)):
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    return {"users": users}
+
+@api_router.get("/admin/analytics")
+async def admin_get_analytics(admin: dict = Depends(get_admin_user)):
+    total_users = await db.users.count_documents({})
+    active_subscriptions = await db.users.count_documents({"subscription_status": "active"})
+    total_checkins = await db.mood_checkins.count_documents({})
+    total_diary_entries = await db.diary_entries.count_documents({})
+    total_chat_messages = await db.chat_messages.count_documents({})
+    
+    # Mood distribution
+    mood_pipeline = [
+        {"$group": {"_id": "$feeling", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    mood_distribution = await db.mood_checkins.aggregate(mood_pipeline).to_list(20)
+    
+    # Country distribution
+    country_pipeline = [
+        {"$group": {"_id": "$country", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    country_distribution = await db.users.aggregate(country_pipeline).to_list(20)
+    
+    # Gender distribution
+    gender_pipeline = [
+        {"$group": {"_id": "$gender", "count": {"$sum": 1}}}
+    ]
+    gender_distribution = await db.users.aggregate(gender_pipeline).to_list(10)
+    
+    return {
+        "total_users": total_users,
+        "active_subscriptions": active_subscriptions,
+        "total_checkins": total_checkins,
+        "total_diary_entries": total_diary_entries,
+        "total_chat_messages": total_chat_messages,
+        "mood_distribution": [{"feeling": m["_id"], "count": m["count"]} for m in mood_distribution],
+        "country_distribution": [{"country": c["_id"], "count": c["count"]} for c in country_distribution],
+        "gender_distribution": [{"gender": g["_id"], "count": g["count"]} for g in gender_distribution]
+    }
+
+@api_router.get("/admin/export/users")
+async def admin_export_users(admin: dict = Depends(get_admin_user)):
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(10000)
+    return {"data": users, "type": "users", "exported_at": datetime.now(timezone.utc).isoformat()}
+
+@api_router.get("/admin/export/moods")
+async def admin_export_moods(admin: dict = Depends(get_admin_user)):
+    moods = await db.mood_checkins.find({}, {"_id": 0}).to_list(10000)
+    return {"data": moods, "type": "mood_checkins", "exported_at": datetime.now(timezone.utc).isoformat()}
+
+# ==================== HEALTH CHECK ====================
+
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Nfadhfadh API is running", "version": "1.0.0"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
+@api_router.get("/health")
+async def health():
+    return {"status": "healthy"}
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
-
-# Include the router in the main app
+# Include router and middleware
 app.include_router(api_router)
 
 app.add_middleware(
@@ -76,13 +794,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
