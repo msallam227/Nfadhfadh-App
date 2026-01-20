@@ -800,6 +800,89 @@ async def admin_export_moods(admin: dict = Depends(get_admin_user)):
     moods = await db.mood_checkins.find({}, {"_id": 0}).to_list(10000)
     return {"data": moods, "type": "mood_checkins", "exported_at": datetime.now(timezone.utc).isoformat()}
 
+# ==================== ADMIN PER-USER DATA ====================
+
+@api_router.get("/admin/user/{user_id}/checkins")
+async def admin_get_user_checkins(user_id: str, admin: dict = Depends(get_admin_user)):
+    """Get all mood check-ins for a specific user"""
+    checkins = await db.mood_checkins.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return {"user": user, "checkins": checkins, "total": len(checkins)}
+
+@api_router.get("/admin/user/{user_id}/diary")
+async def admin_get_user_diary(user_id: str, admin: dict = Depends(get_admin_user)):
+    """Get all diary entries for a specific user"""
+    entries = await db.diary_entries.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return {"user": user, "diary_entries": entries, "total": len(entries)}
+
+@api_router.get("/admin/user/{user_id}/chats")
+async def admin_get_user_chats(user_id: str, admin: dict = Depends(get_admin_user)):
+    """Get all chat messages for a specific user"""
+    messages = await db.chat_messages.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    
+    # Group by session
+    sessions = {}
+    for msg in messages:
+        sid = msg.get("session_id", "unknown")
+        if sid not in sessions:
+            sessions[sid] = []
+        sessions[sid].append(msg)
+    
+    return {"user": user, "chat_sessions": sessions, "total_messages": len(messages), "total_sessions": len(sessions)}
+
+@api_router.get("/admin/user/{user_id}/full")
+async def admin_get_user_full_data(user_id: str, admin: dict = Depends(get_admin_user)):
+    """Get complete data for a specific user including all activities"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    checkins = await db.mood_checkins.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    diary = await db.diary_entries.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    chats = await db.chat_messages.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    payments = await db.payment_transactions.find({"user_id": user_id}, {"_id": 0}).to_list(50)
+    
+    return {
+        "user": user,
+        "mood_checkins": {"data": checkins, "total": len(checkins)},
+        "diary_entries": {"data": diary, "total": len(diary)},
+        "chat_messages": {"data": chats, "total": len(chats)},
+        "payments": {"data": payments, "total": len(payments)}
+    }
+
+@api_router.get("/admin/subscriptions")
+async def admin_get_subscriptions(admin: dict = Depends(get_admin_user)):
+    """Get detailed subscription statistics"""
+    # All subscribed users
+    subscribed = await db.users.find(
+        {"subscription_status": "active"}, 
+        {"_id": 0, "password_hash": 0}
+    ).to_list(1000)
+    
+    # Subscription by tier
+    tier_pipeline = [
+        {"$match": {"subscription_status": "active"}},
+        {"$group": {"_id": "$subscription_tier", "count": {"$sum": 1}, "total_revenue": {"$sum": "$subscription_price"}}}
+    ]
+    by_tier = await db.users.aggregate(tier_pipeline).to_list(10)
+    
+    # Payment transactions
+    paid_transactions = await db.payment_transactions.find(
+        {"payment_status": "paid"}, {"_id": 0}
+    ).to_list(1000)
+    
+    total_revenue = sum(t.get("amount", 0) for t in paid_transactions)
+    
+    return {
+        "active_subscribers": len(subscribed),
+        "subscribers": subscribed,
+        "by_tier": [{"tier": t["_id"], "count": t["count"], "revenue": t.get("total_revenue", 0)} for t in by_tier],
+        "total_revenue": total_revenue,
+        "total_transactions": len(paid_transactions)
+    }
+
 # ==================== HEALTH CHECK ====================
 
 @api_router.get("/")
