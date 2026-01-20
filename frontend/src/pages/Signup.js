@@ -11,17 +11,39 @@ import { Globe, Eye, EyeOff, User, Lock, Calendar, MapPin, Briefcase, ArrowLeft,
 import { toast } from 'sonner';
 
 const countries = [
+  // Arab countries - Standard tier ($5)
   { value: 'syria', labelEn: 'Syria', labelAr: 'سوريا' },
   { value: 'jordan', labelEn: 'Jordan', labelAr: 'الأردن' },
   { value: 'egypt', labelEn: 'Egypt', labelAr: 'مصر' },
   { value: 'morocco', labelEn: 'Morocco', labelAr: 'المغرب' },
   { value: 'iraq', labelEn: 'Iraq', labelAr: 'العراق' },
+  { value: 'lebanon', labelEn: 'Lebanon', labelAr: 'لبنان' },
+  { value: 'palestine', labelEn: 'Palestine', labelAr: 'فلسطين' },
+  { value: 'yemen', labelEn: 'Yemen', labelAr: 'اليمن' },
+  { value: 'sudan', labelEn: 'Sudan', labelAr: 'السودان' },
+  { value: 'tunisia', labelEn: 'Tunisia', labelAr: 'تونس' },
+  { value: 'algeria', labelEn: 'Algeria', labelAr: 'الجزائر' },
+  { value: 'libya', labelEn: 'Libya', labelAr: 'ليبيا' },
+  // Gulf countries - Premium tier ($15)
   { value: 'saudi arabia', labelEn: 'Saudi Arabia', labelAr: 'السعودية' },
   { value: 'uae', labelEn: 'UAE', labelAr: 'الإمارات' },
   { value: 'qatar', labelEn: 'Qatar', labelAr: 'قطر' },
   { value: 'kuwait', labelEn: 'Kuwait', labelAr: 'الكويت' },
   { value: 'bahrain', labelEn: 'Bahrain', labelAr: 'البحرين' },
   { value: 'oman', labelEn: 'Oman', labelAr: 'عمان' },
+  // International - ($10)
+  { value: 'united states', labelEn: 'United States', labelAr: 'الولايات المتحدة' },
+  { value: 'united kingdom', labelEn: 'United Kingdom', labelAr: 'المملكة المتحدة' },
+  { value: 'canada', labelEn: 'Canada', labelAr: 'كندا' },
+  { value: 'australia', labelEn: 'Australia', labelAr: 'أستراليا' },
+  { value: 'germany', labelEn: 'Germany', labelAr: 'ألمانيا' },
+  { value: 'france', labelEn: 'France', labelAr: 'فرنسا' },
+  { value: 'turkey', labelEn: 'Turkey', labelAr: 'تركيا' },
+  { value: 'malaysia', labelEn: 'Malaysia', labelAr: 'ماليزيا' },
+  { value: 'indonesia', labelEn: 'Indonesia', labelAr: 'إندونيسيا' },
+  { value: 'india', labelEn: 'India', labelAr: 'الهند' },
+  { value: 'pakistan', labelEn: 'Pakistan', labelAr: 'باكستان' },
+  { value: 'other', labelEn: 'Other', labelAr: 'أخرى' },
 ];
 
 const Signup = () => {
