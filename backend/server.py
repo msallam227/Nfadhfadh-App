@@ -1171,41 +1171,6 @@ async def admin_delete_article(article_id: str, admin: dict = Depends(get_admin_
     await db.articles.delete_one({"id": article_id})
     return {"message": "Article deleted successfully"}
 
-@api_router.get("/admin/articles")
-async def admin_get_articles(admin: dict = Depends(get_admin_user)):
-    """Get all admin-created articles"""
-    articles = await db.articles.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
-    return {"articles": articles, "total": len(articles)}
-
-@api_router.put("/admin/articles/{article_id}")
-async def admin_update_article(article_id: str, article: ArticleCreate, admin: dict = Depends(get_admin_user)):
-    """Update an existing article (Admin only)"""
-    existing = await db.articles.find_one({"id": article_id})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Article not found")
-    
-    update_doc = {
-        "title": article.title,
-        "summary": article.summary,
-        "content": article.content,
-        "category": article.category,
-        "image_url": article.image_url or existing.get("image_url"),
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    await db.articles.update_one({"id": article_id}, {"$set": update_doc})
-    
-    return {"message": "Article updated successfully", "article_id": article_id}
-
-@api_router.delete("/admin/articles/{article_id}")
-async def admin_delete_article(article_id: str, admin: dict = Depends(get_admin_user)):
-    """Delete an article (Admin only)"""
-    result = await db.articles.delete_one({"id": article_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Article not found")
-    
-    return {"message": "Article deleted successfully", "article_id": article_id}
-
 # ==================== PAYMENT ROUTES ====================
 
 @api_router.post("/payments/create-checkout")
