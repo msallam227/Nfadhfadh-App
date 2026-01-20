@@ -919,6 +919,147 @@ const AdminDashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Article Form Dialog */}
+      <Dialog open={showArticleForm} onOpenChange={(open) => { setShowArticleForm(open); if (!open) resetArticleForm(); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[#0F4C81]" />
+              {editingArticle 
+                ? (language === 'ar' ? 'تعديل المقال' : 'Edit Article')
+                : (language === 'ar' ? 'إضافة مقال جديد' : 'Add New Article')}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={handleArticleSubmit} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">{language === 'ar' ? 'العنوان' : 'Title'} *</Label>
+              <Input
+                id="title"
+                value={articleForm.title}
+                onChange={(e) => setArticleForm({ ...articleForm, title: e.target.value })}
+                placeholder={language === 'ar' ? 'عنوان المقال' : 'Article title'}
+                required
+                data-testid="article-title-input"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="summary">{language === 'ar' ? 'الملخص' : 'Summary'} *</Label>
+              <Textarea
+                id="summary"
+                value={articleForm.summary}
+                onChange={(e) => setArticleForm({ ...articleForm, summary: e.target.value })}
+                placeholder={language === 'ar' ? 'ملخص قصير للمقال' : 'Brief summary of the article'}
+                rows={2}
+                required
+                data-testid="article-summary-input"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="content">{language === 'ar' ? 'المحتوى' : 'Content'} *</Label>
+              <Textarea
+                id="content"
+                value={articleForm.content}
+                onChange={(e) => setArticleForm({ ...articleForm, content: e.target.value })}
+                placeholder={language === 'ar' ? 'محتوى المقال الكامل' : 'Full article content'}
+                rows={6}
+                required
+                data-testid="article-content-input"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="author">{language === 'ar' ? 'الكاتب' : 'Author'}</Label>
+                <Input
+                  id="author"
+                  value={articleForm.author}
+                  onChange={(e) => setArticleForm({ ...articleForm, author: e.target.value })}
+                  placeholder="Nfadhfadh Team"
+                  data-testid="article-author-input"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="published_date">{language === 'ar' ? 'تاريخ النشر' : 'Published Date'}</Label>
+                <Input
+                  id="published_date"
+                  type="date"
+                  value={articleForm.published_date}
+                  onChange={(e) => setArticleForm({ ...articleForm, published_date: e.target.value })}
+                  data-testid="article-date-input"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">{language === 'ar' ? 'التصنيف' : 'Category'}</Label>
+                <select
+                  id="category"
+                  value={articleForm.category}
+                  onChange={(e) => setArticleForm({ ...articleForm, category: e.target.value })}
+                  className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+                  data-testid="article-category-select"
+                >
+                  {ARTICLE_CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="tags">{language === 'ar' ? 'الوسوم' : 'Tags'}</Label>
+                <Input
+                  id="tags"
+                  value={articleForm.tags}
+                  onChange={(e) => setArticleForm({ ...articleForm, tags: e.target.value })}
+                  placeholder={language === 'ar' ? 'وسم1, وسم2, وسم3' : 'tag1, tag2, tag3'}
+                  data-testid="article-tags-input"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="image_url">{language === 'ar' ? 'رابط الصورة' : 'Image URL'}</Label>
+              <Input
+                id="image_url"
+                value={articleForm.image_url}
+                onChange={(e) => setArticleForm({ ...articleForm, image_url: e.target.value })}
+                placeholder="https://..."
+                data-testid="article-image-input"
+              />
+            </div>
+            
+            <div className="flex gap-3 justify-end pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setShowArticleForm(false); resetArticleForm(); }}
+                className="rounded-xl"
+              >
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button
+                type="submit"
+                disabled={articleSubmitting}
+                className="btn-primary rounded-xl"
+                data-testid="article-submit-btn"
+              >
+                {articleSubmitting ? (
+                  <RefreshCw className="w-4 h-4 me-2 animate-spin" />
+                ) : null}
+                {editingArticle 
+                  ? (language === 'ar' ? 'تحديث' : 'Update')
+                  : (language === 'ar' ? 'إنشاء' : 'Create')}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
