@@ -33,6 +33,7 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [subscriptions, setSubscriptions] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [userDataLoading, setUserDataLoading] = useState(false);
@@ -44,9 +45,18 @@ const AdminDashboard = () => {
       return;
     }
     fetchData();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, [isAdmin, navigate]);
 
-  const fetchData = async () => {
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
+    setRefreshing(true);
     try {
       const [analyticsRes, usersRes, subsRes] = await Promise.all([
         axios.get(`${API}/admin/analytics`),
@@ -56,6 +66,7 @@ const AdminDashboard = () => {
       setAnalytics(analyticsRes.data);
       setUsers(usersRes.data.users || []);
       setSubscriptions(subsRes.data);
+      if (!silent) setLoading(false);
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast.error(language === 'ar' ? 'فشل تحميل البيانات' : 'Failed to load data');
