@@ -169,6 +169,96 @@ const AdminDashboard = () => {
     navigate('/admin/login');
   };
 
+  // Article management functions
+  const resetArticleForm = () => {
+    setArticleForm({
+      title: '',
+      summary: '',
+      content: '',
+      author: 'Nfadhfadh Team',
+      category: 'mental health',
+      tags: '',
+      published_date: new Date().toISOString().split('T')[0],
+      image_url: ''
+    });
+    setEditingArticle(null);
+  };
+
+  const handleArticleSubmit = async (e) => {
+    e.preventDefault();
+    setArticleSubmitting(true);
+    
+    try {
+      const tagsArray = articleForm.tags
+        ? articleForm.tags.split(',').map(t => t.trim()).filter(t => t)
+        : [];
+      
+      const articleData = {
+        ...articleForm,
+        tags: tagsArray
+      };
+      
+      if (editingArticle) {
+        await axios.put(`${API}/admin/articles/${editingArticle.id}`, articleData);
+        toast.success(language === 'ar' ? 'تم تحديث المقال' : 'Article updated');
+      } else {
+        await axios.post(`${API}/admin/articles`, articleData);
+        toast.success(language === 'ar' ? 'تم إنشاء المقال' : 'Article created');
+      }
+      
+      setShowArticleForm(false);
+      resetArticleForm();
+      fetchData();
+    } catch (error) {
+      toast.error(language === 'ar' ? 'فشل حفظ المقال' : 'Failed to save article');
+    } finally {
+      setArticleSubmitting(false);
+    }
+  };
+
+  const handleEditArticle = (article) => {
+    setArticleForm({
+      title: article.title || '',
+      summary: article.summary || '',
+      content: article.content || '',
+      author: article.author || 'Nfadhfadh Team',
+      category: article.category || 'mental health',
+      tags: article.tags ? article.tags.join(', ') : '',
+      published_date: article.published_date || new Date().toISOString().split('T')[0],
+      image_url: article.image_url || ''
+    });
+    setEditingArticle(article);
+    setShowArticleForm(true);
+  };
+
+  const handleDeleteArticle = async (articleId) => {
+    if (!window.confirm(language === 'ar' ? 'هل تريد حذف هذا المقال؟' : 'Delete this article?')) {
+      return;
+    }
+    
+    try {
+      await axios.delete(`${API}/admin/articles/${articleId}`);
+      toast.success(language === 'ar' ? 'تم حذف المقال' : 'Article deleted');
+      fetchData();
+    } catch (error) {
+      toast.error(language === 'ar' ? 'فشل حذف المقال' : 'Failed to delete article');
+    }
+  };
+
+  // Email reminder function
+  const handleSendBulkReminders = async () => {
+    setSendingReminders(true);
+    try {
+      const response = await axios.post(`${API}/admin/send-bulk-reminders`);
+      toast.success(response.data.message);
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || 'Failed to send reminders';
+      toast.error(errorMsg);
+    } finally {
+      setSendingReminders(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
