@@ -518,88 +518,114 @@ async def get_strategies(feeling: Optional[str] = None, current_user: dict = Dep
     return {"strategies": strategies}
 
 # ==================== ARTICLES ====================
+import aiohttp
 
-# Sample articles (Arabic preferred as requested)
-SAMPLE_ARTICLES = {
+# Fallback articles when API fails
+FALLBACK_ARTICLES = {
     "ar": [
-        {
-            "id": "1",
-            "title": "كيف تتعامل مع القلق اليومي",
-            "summary": "نصائح عملية للتعامل مع مشاعر القلق في الحياة اليومية",
-            "content": "القلق شعور طبيعي يمر به الجميع. تعلم كيف تتعرف على علامات القلق وكيف تتعامل معها بطرق صحية...",
-            "category": "anxiety",
-            "image_url": "https://images.unsplash.com/photo-1741962839093-5e08a8cc40ae"
-        },
-        {
-            "id": "2",
-            "title": "أهمية النوم الجيد للصحة النفسية",
-            "summary": "كيف يؤثر النوم على مزاجك وصحتك العقلية",
-            "content": "النوم الجيد أساسي للصحة النفسية. تعرف على العلاقة بين النوم والمزاج وكيف تحسن نومك...",
-            "category": "wellness",
-            "image_url": "https://images.unsplash.com/photo-1763258668628-0639a2d40a4a"
-        },
-        {
-            "id": "3",
-            "title": "تمارين التأمل للمبتدئين",
-            "summary": "ابدأ رحلتك في التأمل بهذه التمارين البسيطة",
-            "content": "التأمل يساعد على تهدئة العقل وتقليل التوتر. إليك بعض التمارين السهلة للبدء...",
-            "category": "meditation",
-            "image_url": "https://images.pexels.com/photos/8715954/pexels-photo-8715954.jpeg"
-        },
-        {
-            "id": "4",
-            "title": "بناء علاقات صحية",
-            "summary": "كيف تبني وتحافظ على علاقات إيجابية",
-            "content": "العلاقات الصحية تدعم صحتنا النفسية. تعلم كيف تتواصل بشكل أفضل وتبني روابط قوية...",
-            "category": "relationships",
-            "image_url": "https://images.unsplash.com/photo-1764848084652-66719e701262"
-        }
+        {"id": "1", "title": "كيف تتعامل مع القلق اليومي", "summary": "نصائح عملية للتعامل مع مشاعر القلق", "content": "القلق شعور طبيعي يمر به الجميع. تعلم كيف تتعرف على علامات القلق وكيف تتعامل معها بطرق صحية.", "category": "anxiety", "image_url": "https://images.unsplash.com/photo-1741962839093-5e08a8cc40ae", "source": "local"},
+        {"id": "2", "title": "أهمية النوم الجيد للصحة النفسية", "summary": "كيف يؤثر النوم على مزاجك", "content": "النوم الجيد أساسي للصحة النفسية. تعرف على العلاقة بين النوم والمزاج.", "category": "wellness", "image_url": "https://images.unsplash.com/photo-1763258668628-0639a2d40a4a", "source": "local"},
+        {"id": "3", "title": "تمارين التأمل للمبتدئين", "summary": "ابدأ رحلتك في التأمل", "content": "التأمل يساعد على تهدئة العقل وتقليل التوتر.", "category": "meditation", "image_url": "https://images.pexels.com/photos/8715954/pexels-photo-8715954.jpeg", "source": "local"},
     ],
     "en": [
-        {
-            "id": "1",
-            "title": "How to Deal with Daily Anxiety",
-            "summary": "Practical tips for managing anxiety feelings in daily life",
-            "content": "Anxiety is a natural feeling everyone experiences. Learn how to recognize anxiety signs and deal with them in healthy ways...",
-            "category": "anxiety",
-            "image_url": "https://images.unsplash.com/photo-1741962839093-5e08a8cc40ae"
-        },
-        {
-            "id": "2",
-            "title": "The Importance of Good Sleep for Mental Health",
-            "summary": "How sleep affects your mood and mental health",
-            "content": "Good sleep is essential for mental health. Learn about the relationship between sleep and mood and how to improve your sleep...",
-            "category": "wellness",
-            "image_url": "https://images.unsplash.com/photo-1763258668628-0639a2d40a4a"
-        },
-        {
-            "id": "3",
-            "title": "Meditation Exercises for Beginners",
-            "summary": "Start your meditation journey with these simple exercises",
-            "content": "Meditation helps calm the mind and reduce stress. Here are some easy exercises to get started...",
-            "category": "meditation",
-            "image_url": "https://images.pexels.com/photos/8715954/pexels-photo-8715954.jpeg"
-        },
-        {
-            "id": "4",
-            "title": "Building Healthy Relationships",
-            "summary": "How to build and maintain positive relationships",
-            "content": "Healthy relationships support our mental health. Learn how to communicate better and build strong bonds...",
-            "category": "relationships",
-            "image_url": "https://images.unsplash.com/photo-1764848084652-66719e701262"
-        }
+        {"id": "1", "title": "How to Deal with Daily Anxiety", "summary": "Practical tips for managing anxiety", "content": "Anxiety is a natural feeling everyone experiences. Learn how to recognize anxiety signs.", "category": "anxiety", "image_url": "https://images.unsplash.com/photo-1741962839093-5e08a8cc40ae", "source": "local"},
+        {"id": "2", "title": "The Importance of Good Sleep", "summary": "How sleep affects your mood", "content": "Good sleep is essential for mental health.", "category": "wellness", "image_url": "https://images.unsplash.com/photo-1763258668628-0639a2d40a4a", "source": "local"},
+        {"id": "3", "title": "Meditation for Beginners", "summary": "Start your meditation journey", "content": "Meditation helps calm the mind and reduce stress.", "category": "meditation", "image_url": "https://images.pexels.com/photos/8715954/pexels-photo-8715954.jpeg", "source": "local"},
     ]
 }
+
+async def fetch_psychology_articles(language: str = "en"):
+    """Fetch psychology/mental health articles from external API"""
+    articles = []
+    
+    # Use Google Custom Search or NewsAPI for articles
+    search_terms = {
+        "ar": ["الصحة النفسية", "علم النفس", "التأمل والاسترخاء", "إدارة التوتر", "العلاج النفسي"],
+        "en": ["mental health tips", "psychology wellness", "anxiety management", "stress relief", "mindfulness"]
+    }
+    
+    topics = search_terms.get(language, search_terms["en"])
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Using Wikipedia API for reliable psychology content
+            for idx, topic in enumerate(topics[:5]):
+                wiki_url = f"https://{'ar' if language == 'ar' else 'en'}.wikipedia.org/api/rest_v1/page/summary/{topic.replace(' ', '_')}"
+                try:
+                    async with session.get(wiki_url, timeout=5) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            if data.get("extract"):
+                                articles.append({
+                                    "id": f"api_{idx}",
+                                    "title": data.get("title", topic),
+                                    "summary": data.get("description", "")[:200] if data.get("description") else data.get("extract", "")[:200],
+                                    "content": data.get("extract", ""),
+                                    "category": "psychology",
+                                    "image_url": data.get("thumbnail", {}).get("source", "https://images.unsplash.com/photo-1741962839093-5e08a8cc40ae"),
+                                    "source": "wikipedia",
+                                    "url": data.get("content_urls", {}).get("desktop", {}).get("page", "")
+                                })
+                except:
+                    continue
+    except Exception as e:
+        logger.error(f"Error fetching articles: {e}")
+    
+    # Add curated psychology articles
+    curated = await get_curated_psychology_articles(language)
+    articles.extend(curated)
+    
+    return articles if articles else FALLBACK_ARTICLES.get(language, FALLBACK_ARTICLES["en"])
+
+async def get_curated_psychology_articles(language: str):
+    """Get curated psychology articles from database or generate with AI"""
+    cached = await db.cached_articles.find({"language": language}, {"_id": 0}).to_list(10)
+    if cached:
+        return cached
+    
+    # Generate using AI if no cache
+    try:
+        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id="article_gen", system_message="You are a mental health content writer.")
+        chat.with_model("openai", "gpt-5.2")
+        
+        prompt = f"Generate 3 short mental health articles in {'Arabic' if language == 'ar' else 'English'}. Return as JSON array with fields: title, summary, content (300 words), category. Categories: anxiety, depression, stress, relationships, self-care."
+        response = await chat.send_message(UserMessage(text=prompt))
+        
+        import json
+        try:
+            generated = json.loads(response)
+            for idx, art in enumerate(generated):
+                art["id"] = f"gen_{idx}"
+                art["image_url"] = "https://images.unsplash.com/photo-1741962839093-5e08a8cc40ae"
+                art["source"] = "ai_generated"
+                art["language"] = language
+                await db.cached_articles.insert_one(art)
+            return generated
+        except:
+            pass
+    except Exception as e:
+        logger.error(f"Error generating articles: {e}")
+    
+    return []
 
 @api_router.get("/articles")
 async def get_articles(current_user: dict = Depends(get_current_user)):
     lang = current_user.get("language", "en")
-    return {"articles": SAMPLE_ARTICLES.get(lang, SAMPLE_ARTICLES["ar"])}
+    articles = await fetch_psychology_articles(lang)
+    return {"articles": articles, "language": lang}
+
+@api_router.get("/articles/refresh")
+async def refresh_articles(current_user: dict = Depends(get_current_user)):
+    """Force refresh articles from external sources"""
+    lang = current_user.get("language", "en")
+    await db.cached_articles.delete_many({"language": lang})
+    articles = await fetch_psychology_articles(lang)
+    return {"articles": articles, "refreshed": True}
 
 @api_router.get("/articles/{article_id}")
 async def get_article(article_id: str, current_user: dict = Depends(get_current_user)):
     lang = current_user.get("language", "en")
-    articles = SAMPLE_ARTICLES.get(lang, SAMPLE_ARTICLES["ar"])
+    articles = await fetch_psychology_articles(lang)
     for article in articles:
         if article["id"] == article_id:
             return article
