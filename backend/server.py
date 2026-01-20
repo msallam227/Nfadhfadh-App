@@ -129,9 +129,19 @@ class NotificationSettings(BaseModel):
     enabled: bool = True
     reminder_time: str = "09:00"  # HH:MM format
     timezone: str = "UTC"
+    email: Optional[str] = None  # Optional email for reminders
 
 class WeeklyReportRequest(BaseModel):
     week_start: Optional[str] = None  # ISO date string
+
+class EmailReminderSettings(BaseModel):
+    email: str  # Email address for reminders
+    enabled: bool = True
+    reminder_time: str = "09:00"
+    timezone: str = "UTC"
+
+class SendTestEmailRequest(BaseModel):
+    email: str
 
 # ==================== AUTH HELPERS ====================
 
