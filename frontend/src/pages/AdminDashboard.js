@@ -322,8 +322,8 @@ const AdminDashboard = () => {
                             <p className="text-sm text-slate-500">{user.country} • {user.occupation}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-end">
+                        <div className="flex items-center gap-2">
+                          <div className="text-end me-2">
                             <p className={`text-sm font-medium ${user.subscription_status === 'active' ? 'text-green-600' : 'text-slate-400'}`}>
                               {user.subscription_status === 'active' ? t('active') : t('inactive')}
                             </p>
@@ -339,6 +339,15 @@ const AdminDashboard = () => {
                             data-testid={`view-user-${user.id}`}
                           >
                             <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteClick(user)}
+                            className="rounded-lg text-red-600 border-red-200 hover:bg-red-50"
+                            data-testid={`delete-user-${user.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
