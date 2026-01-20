@@ -295,9 +295,127 @@ FEELINGS = [
     "pride", "jealousy", "thankful", "excitement", "boredom", "confusion"
 ]
 
+# Questions of the Day
+QUESTIONS_OF_THE_DAY = {
+    "en": [
+        "What's one thing you're looking forward to today?",
+        "How did you sleep last night?",
+        "What's something kind you can do for yourself today?",
+        "Who made you smile recently?",
+        "What's one small win you had this week?",
+        "What are you grateful for right now?",
+        "How are you taking care of your mental health today?",
+        "What's one thing you'd like to let go of?",
+        "What brings you peace?",
+        "How can you show yourself compassion today?",
+        "What's one boundary you need to set?",
+        "What emotion do you need to process?",
+        "What would make today a good day?",
+        "How are you feeling in your body right now?",
+        "What's one thing you're proud of?",
+        "What support do you need today?",
+        "How can you be gentle with yourself?",
+        "What's weighing on your mind?",
+        "What brings you joy?",
+        "How are you really doing?",
+    ],
+    "ar": [
+        "ما الشيء الذي تتطلع إليه اليوم؟",
+        "كيف كان نومك الليلة الماضية؟",
+        "ما الشيء اللطيف الذي يمكنك فعله لنفسك اليوم؟",
+        "من جعلك تبتسم مؤخراً؟",
+        "ما هو الإنجاز الصغير الذي حققته هذا الأسبوع؟",
+        "ما الذي تشعر بالامتنان له الآن؟",
+        "كيف تعتني بصحتك النفسية اليوم؟",
+        "ما الشيء الذي تريد التخلي عنه؟",
+        "ما الذي يجلب لك السلام؟",
+        "كيف يمكنك إظهار التعاطف مع نفسك اليوم؟",
+        "ما الحدود التي تحتاج لوضعها؟",
+        "ما الشعور الذي تحتاج لمعالجته؟",
+        "ما الذي سيجعل يومك جيداً؟",
+        "كيف تشعر في جسدك الآن؟",
+        "ما الشيء الذي تفتخر به؟",
+        "ما الدعم الذي تحتاجه اليوم؟",
+        "كيف يمكنك أن تكون لطيفاً مع نفسك؟",
+        "ما الذي يثقل عقلك؟",
+        "ما الذي يجلب لك السعادة؟",
+        "كيف حالك حقاً؟",
+    ]
+}
+
+async def calculate_streak(user_id: str) -> dict:
+    """Calculate user's check-in streak"""
+    checkins = await db.mood_checkins.find(
+        {"user_id": user_id}, {"_id": 0, "created_at": 1}
+    ).sort("created_at", -1).to_list(365)
+    
+    if not checkins:
+        return {"current_streak": 0, "longest_streak": 0, "checked_in_today": False, "weekly_badge": False}
+    
+    # Get unique dates (in user's timezone, simplified to UTC)
+    check_dates = set()
+    for c in checkins:
+        date_str = c["created_at"][:10]  # Get YYYY-MM-DD
+        check_dates.add(date_str)
+    
+    sorted_dates = sorted(check_dates, reverse=True)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    checked_in_today = today in check_dates
+    
+    # Calculate current streak
+    current_streak = 0
+    check_date = today if checked_in_today else yesterday
+    
+    for i in range(365):
+        target_date = (datetime.now(timezone.utc) - timedelta(days=i if checked_in_today else i+1)).strftime("%Y-%m-%d")
+        if target_date in check_dates:
+            current_streak += 1
+        else:
+            break
+    
+    # Calculate longest streak
+    longest_streak = 0
+    temp_streak = 0
+    prev_date = None
+    
+    for date_str in sorted(check_dates):
+        current_date = datetime.strptime(date_str, "%Y-%m-%d")
+        if prev_date is None:
+            temp_streak = 1
+        elif (current_date - prev_date).days == 1:
+            temp_streak += 1
+        else:
+            longest_streak = max(longest_streak, temp_streak)
+            temp_streak = 1
+        prev_date = current_date
+    
+    longest_streak = max(longest_streak, temp_streak)
+    
+    # Weekly badge (7+ days streak)
+    weekly_badge = current_streak >= 7
+    
+    return {
+        "current_streak": current_streak,
+        "longest_streak": longest_streak,
+        "checked_in_today": checked_in_today,
+        "weekly_badge": weekly_badge,
+        "total_checkins": len(checkins)
+    }
+
 @api_router.get("/feelings")
 async def get_feelings():
     return {"feelings": FEELINGS}
+
+@api_router.get("/mood/question-of-day")
+async def get_question_of_day(current_user: dict = Depends(get_current_user)):
+    """Get today's question based on day of year"""
+    lang = current_user.get("language", "en")
+    questions = QUESTIONS_OF_THE_DAY.get(lang, QUESTIONS_OF_THE_DAY["en"])
+    day_of_year = datetime.now(timezone.utc).timetuple().tm_yday
+    question_index = day_of_year % len(questions)
+    return {"question": questions[question_index], "date": datetime.now(timezone.utc).strftime("%Y-%m-%d")}
 
 @api_router.post("/mood/checkin")
 async def create_mood_checkin(mood: MoodCheckIn, current_user: dict = Depends(get_current_user)):
@@ -310,12 +428,17 @@ async def create_mood_checkin(mood: MoodCheckIn, current_user: dict = Depends(ge
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.mood_checkins.insert_one(mood_doc)
+    
+    # Calculate streak after check-in
+    streak_info = await calculate_streak(current_user["id"])
+    
     return {
         "id": mood_id,
         "user_id": current_user["id"],
         "feeling": mood.feeling,
         "note": mood.note or "",
-        "created_at": mood_doc["created_at"]
+        "created_at": mood_doc["created_at"],
+        "streak": streak_info
     }
 
 @api_router.get("/mood/checkins")
@@ -324,6 +447,12 @@ async def get_mood_checkins(current_user: dict = Depends(get_current_user)):
         {"user_id": current_user["id"]}, {"_id": 0}
     ).sort("created_at", -1).to_list(100)
     return {"checkins": checkins}
+
+@api_router.get("/mood/streak")
+async def get_mood_streak(current_user: dict = Depends(get_current_user)):
+    """Get user's current streak information"""
+    streak_info = await calculate_streak(current_user["id"])
+    return streak_info
 
 @api_router.get("/mood/summary")
 async def get_mood_summary(current_user: dict = Depends(get_current_user)):
@@ -337,11 +466,124 @@ async def get_mood_summary(current_user: dict = Depends(get_current_user)):
         feeling_counts[feeling] = feeling_counts.get(feeling, 0) + 1
     
     total = len(checkins)
+    streak_info = await calculate_streak(current_user["id"])
+    
     return {
         "total_checkins": total,
         "feeling_distribution": feeling_counts,
-        "most_common": max(feeling_counts, key=feeling_counts.get) if feeling_counts else None
+        "most_common": max(feeling_counts, key=feeling_counts.get) if feeling_counts else None,
+        "streak": streak_info
     }
+
+@api_router.get("/mood/weekly-report")
+async def get_weekly_report(current_user: dict = Depends(get_current_user)):
+    """Generate weekly emotional report"""
+    lang = current_user.get("language", "en")
+    
+    # Get checkins from last 7 days
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    checkins = await db.mood_checkins.find(
+        {"user_id": current_user["id"], "created_at": {"$gte": week_ago}}, {"_id": 0}
+    ).sort("created_at", 1).to_list(100)
+    
+    # Get diary entries from last 7 days
+    diary_entries = await db.diary_entries.find(
+        {"user_id": current_user["id"], "created_at": {"$gte": week_ago}}, {"_id": 0}
+    ).to_list(50)
+    
+    # Analyze feelings
+    feeling_counts = {}
+    daily_feelings = {}
+    for checkin in checkins:
+        feeling = checkin["feeling"]
+        feeling_counts[feeling] = feeling_counts.get(feeling, 0) + 1
+        
+        date = checkin["created_at"][:10]
+        if date not in daily_feelings:
+            daily_feelings[date] = []
+        daily_feelings[date].append(feeling)
+    
+    # Determine dominant mood
+    dominant_mood = max(feeling_counts, key=feeling_counts.get) if feeling_counts else None
+    
+    # Calculate mood trend (positive/negative/neutral)
+    positive_feelings = ["happiness", "calm", "love", "hope", "pride", "thankful", "excitement"]
+    negative_feelings = ["sadness", "anger", "fear", "anxiety", "stress", "loneliness", "disappointment", "frustration", "guilt", "shame", "jealousy"]
+    
+    positive_count = sum(feeling_counts.get(f, 0) for f in positive_feelings)
+    negative_count = sum(feeling_counts.get(f, 0) for f in negative_feelings)
+    
+    if positive_count > negative_count:
+        trend = "positive"
+        trend_message = "You've had more positive emotions this week!" if lang == "en" else "كانت لديك مشاعر إيجابية أكثر هذا الأسبوع!"
+    elif negative_count > positive_count:
+        trend = "negative"
+        trend_message = "This week has been challenging. Remember to be kind to yourself." if lang == "en" else "كان هذا الأسبوع صعباً. تذكر أن تكون لطيفاً مع نفسك."
+    else:
+        trend = "neutral"
+        trend_message = "Your emotions have been balanced this week." if lang == "en" else "كانت مشاعرك متوازنة هذا الأسبوع."
+    
+    # Get streak info
+    streak_info = await calculate_streak(current_user["id"])
+    
+    return {
+        "week_start": week_ago[:10],
+        "week_end": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "total_checkins": len(checkins),
+        "total_diary_entries": len(diary_entries),
+        "feeling_distribution": feeling_counts,
+        "daily_feelings": daily_feelings,
+        "dominant_mood": dominant_mood,
+        "mood_trend": trend,
+        "trend_message": trend_message,
+        "positive_count": positive_count,
+        "negative_count": negative_count,
+        "streak": streak_info,
+        "insights": {
+            "most_common": dominant_mood,
+            "days_checked_in": len(daily_feelings),
+            "consistency": f"{len(daily_feelings)}/7 days"
+        }
+    }
+
+# ==================== NOTIFICATION SETTINGS ====================
+
+@api_router.get("/notifications/settings")
+async def get_notification_settings(current_user: dict = Depends(get_current_user)):
+    """Get user's notification settings"""
+    settings = await db.notification_settings.find_one(
+        {"user_id": current_user["id"]}, {"_id": 0}
+    )
+    
+    if not settings:
+        # Default settings
+        return {
+            "user_id": current_user["id"],
+            "enabled": True,
+            "reminder_time": "09:00",
+            "timezone": "UTC"
+        }
+    
+    return settings
+
+@api_router.put("/notifications/settings")
+async def update_notification_settings(settings: NotificationSettings, current_user: dict = Depends(get_current_user)):
+    """Update user's notification settings"""
+    settings_doc = {
+        "user_id": current_user["id"],
+        "enabled": settings.enabled,
+        "reminder_time": settings.reminder_time,
+        "timezone": settings.timezone,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.notification_settings.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": settings_doc},
+        upsert=True
+    )
+    
+    return {"message": "Notification settings updated", "settings": settings_doc}
 
 # ==================== DIARY ROUTES ====================
 
