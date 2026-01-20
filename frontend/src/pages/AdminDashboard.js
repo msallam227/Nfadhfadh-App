@@ -139,6 +139,17 @@ const AdminDashboard = () => {
           </div>
           
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2"
+              data-testid="admin-refresh-btn"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {language === 'ar' ? 'تحديث' : 'Refresh'}
+            </Button>
             <Button variant="ghost" size="sm" onClick={toggleLanguage} data-testid="admin-language-toggle">
               <Globe className="w-4 h-4 me-2" />
               {language === 'en' ? 'AR' : 'EN'}
