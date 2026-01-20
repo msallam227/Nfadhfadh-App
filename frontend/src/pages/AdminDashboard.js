@@ -680,7 +680,7 @@ const AdminDashboard = () => {
 
           {/* Export Tab */}
           <TabsContent value="export">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="card-soft">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4 mb-4">
@@ -717,6 +717,37 @@ const AdminDashboard = () => {
                   <Button onClick={() => handleExport('moods')} className="w-full btn-primary" data-testid="export-moods-btn">
                     <Download className="w-4 h-4 me-2" />
                     {language === 'ar' ? 'تصدير' : 'Export'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="card-soft bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                      <Mail className="w-6 h-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800">
+                        {language === 'ar' ? 'إرسال تذكيرات' : 'Send Reminders'}
+                      </h3>
+                      <p className="text-sm text-slate-500">
+                        {language === 'ar' ? 'إرسال تذكير لجميع المستخدمين' : 'Email all users'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleSendBulkReminders} 
+                    disabled={sendingReminders}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white" 
+                    data-testid="send-reminders-btn"
+                  >
+                    {sendingReminders ? (
+                      <RefreshCw className="w-4 h-4 me-2 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4 me-2" />
+                    )}
+                    {language === 'ar' ? 'إرسال التذكيرات' : 'Send Reminders'}
                   </Button>
                 </CardContent>
               </Card>
