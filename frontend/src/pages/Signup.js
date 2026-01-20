@@ -75,7 +75,11 @@ const Signup = () => {
   };
 
   const validateStep1 = () => {
-    if (!formData.username || !formData.password || !formData.confirmPassword) {
+    if (!formData.username || formData.username.trim().length < 3) {
+      toast.error(language === 'ar' ? 'اسم المستخدم يجب أن يكون 3 أحرف على الأقل' : 'Username must be at least 3 characters');
+      return false;
+    }
+    if (!formData.password || !formData.confirmPassword) {
       toast.error(language === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields');
       return false;
     }
@@ -91,8 +95,24 @@ const Signup = () => {
   };
 
   const validateStep2 = () => {
-    if (!formData.birthdate || !formData.country || !formData.city || !formData.occupation || !formData.gender) {
-      toast.error(language === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields');
+    if (!formData.birthdate) {
+      toast.error(language === 'ar' ? 'يرجى إدخال تاريخ الميلاد' : 'Please enter your birthdate');
+      return false;
+    }
+    if (!formData.country) {
+      toast.error(language === 'ar' ? 'يرجى اختيار البلد' : 'Please select your country');
+      return false;
+    }
+    if (!formData.city || formData.city.trim().length < 2) {
+      toast.error(language === 'ar' ? 'يرجى إدخال المدينة' : 'Please enter your city');
+      return false;
+    }
+    if (!formData.occupation || formData.occupation.trim().length < 2) {
+      toast.error(language === 'ar' ? 'يرجى إدخال المهنة' : 'Please enter your occupation');
+      return false;
+    }
+    if (!formData.gender) {
+      toast.error(language === 'ar' ? 'يرجى اختيار الجنس' : 'Please select your gender');
       return false;
     }
     return true;
