@@ -4,8 +4,10 @@ import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { Check, Smile, Frown, Angry, Meh, Heart, Cloud, Sun, Moon, Star, Zap, ThumbsUp } from 'lucide-react';
+import { Check, Smile, Frown, Angry, Meh, Heart, Cloud, Sun, Moon, Star, Zap, ThumbsUp, PenLine } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -29,7 +31,8 @@ const feelingIcons = {
   thankful: Heart,
   excitement: Star,
   boredom: Meh,
-  confusion: Meh
+  confusion: Meh,
+  custom: PenLine
 };
 
 const feelingColors = {
@@ -52,12 +55,15 @@ const feelingColors = {
   thankful: { bg: '#E0F2FE', text: '#075985', border: '#0EA5E9' },
   excitement: { bg: '#FECDD3', text: '#9F1239', border: '#F472B6' },
   boredom: { bg: '#F1F5F9', text: '#475569', border: '#94A3B8' },
-  confusion: { bg: '#EDE9FE', text: '#6D28D9', border: '#A78BFA' }
+  confusion: { bg: '#EDE9FE', text: '#6D28D9', border: '#A78BFA' },
+  custom: { bg: '#E0F2FE', text: '#0F4C81', border: '#0F4C81' }
 };
 
 const MoodCheckin = () => {
   const { t, language } = useLanguage();
   const [selectedFeeling, setSelectedFeeling] = useState(null);
+  const [customFeeling, setCustomFeeling] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -67,6 +73,26 @@ const MoodCheckin = () => {
     'loneliness', 'hope', 'disappointment', 'frustration', 'guilt', 'shame',
     'pride', 'jealousy', 'thankful', 'excitement', 'boredom', 'confusion'
   ];
+
+  const handleFeelingSelect = (feeling) => {
+    if (feeling === 'custom') {
+      setShowCustomInput(true);
+      setSelectedFeeling(null);
+    } else {
+      setShowCustomInput(false);
+      setCustomFeeling('');
+      setSelectedFeeling(feeling);
+    }
+  };
+
+  const handleCustomFeelingSubmit = () => {
+    if (customFeeling.trim().length >= 2) {
+      setSelectedFeeling(`custom:${customFeeling.trim()}`);
+      setShowCustomInput(false);
+    } else {
+      toast.error(language === 'ar' ? 'يرجى كتابة شعورك' : 'Please write your feeling');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!selectedFeeling) {
@@ -86,6 +112,8 @@ const MoodCheckin = () => {
       
       setTimeout(() => {
         setSelectedFeeling(null);
+        setCustomFeeling('');
+        setShowCustomInput(false);
         setNote('');
         setSuccess(false);
       }, 2000);
@@ -94,6 +122,14 @@ const MoodCheckin = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getDisplayFeeling = () => {
+    if (!selectedFeeling) return '';
+    if (selectedFeeling.startsWith('custom:')) {
+      return selectedFeeling.replace('custom:', '');
+    }
+    return t(selectedFeeling);
   };
 
   if (success) {
@@ -134,7 +170,7 @@ const MoodCheckin = () => {
           return (
             <button
               key={feeling}
-              onClick={() => setSelectedFeeling(feeling)}
+              onClick={() => handleFeelingSelect(feeling)}
               className={`feeling-card p-4 rounded-2xl border-2 transition-all duration-300 ${
                 isSelected 
                   ? 'ring-2 ring-offset-2 ring-[#0F4C81] scale-105' 
@@ -155,7 +191,70 @@ const MoodCheckin = () => {
             </button>
           );
         })}
+
+        {/* Custom Feeling Option */}
+        <button
+          onClick={() => handleFeelingSelect('custom')}
+          className={`feeling-card p-4 rounded-2xl border-2 border-dashed transition-all duration-300 ${
+            showCustomInput || selectedFeeling?.startsWith('custom:')
+              ? 'ring-2 ring-offset-2 ring-[#0F4C81] scale-105 border-[#0F4C81] bg-[#E0F2FE]' 
+              : 'border-slate-300 hover:border-[#0F4C81] hover:bg-[#F0F9FF] hover:scale-105'
+          }`}
+          data-testid="feeling-custom"
+        >
+          <div className="flex flex-col items-center gap-2">
+            <PenLine className="w-8 h-8 text-[#0F4C81]" />
+            <span className="text-sm font-medium text-center text-[#0F4C81]">
+              {language === 'ar' ? 'شعور آخر' : 'Other Feeling'}
+            </span>
+          </div>
+        </button>
       </div>
+
+      {/* Custom Feeling Input */}
+      {showCustomInput && (
+        <Card className="card-soft animate-fade-in-up">
+          <CardHeader>
+            <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
+              <PenLine className="w-5 h-5 text-[#0F4C81]" />
+              {language === 'ar' ? 'اكتب شعورك' : 'Write Your Feeling'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="text-slate-600">
+                {language === 'ar' ? 'ما هو شعورك الآن؟' : 'What are you feeling right now?'}
+              </Label>
+              <Input
+                value={customFeeling}
+                onChange={(e) => setCustomFeeling(e.target.value)}
+                placeholder={language === 'ar' ? 'مثال: مرتبك، متفائل، قلق...' : 'e.g., overwhelmed, hopeful, anxious...'}
+                className="mt-2 h-12 rounded-xl border-slate-200 focus:ring-2 focus:ring-[#89CFF0]"
+                data-testid="custom-feeling-input"
+                onKeyPress={(e) => e.key === 'Enter' && handleCustomFeelingSubmit()}
+              />
+            </div>
+            <Button
+              onClick={handleCustomFeelingSubmit}
+              className="btn-secondary"
+              disabled={customFeeling.trim().length < 2}
+              data-testid="custom-feeling-submit"
+            >
+              {language === 'ar' ? 'تأكيد الشعور' : 'Confirm Feeling'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Selected Custom Feeling Display */}
+      {selectedFeeling?.startsWith('custom:') && (
+        <div className="text-center p-4 bg-[#E0F2FE] rounded-2xl">
+          <p className="text-[#0F4C81] font-medium">
+            {language === 'ar' ? 'شعورك المختار: ' : 'Your feeling: '}
+            <span className="font-bold">{getDisplayFeeling()}</span>
+          </p>
+        </div>
+      )}
 
       {/* Note Section */}
       <Card className="card-soft">
