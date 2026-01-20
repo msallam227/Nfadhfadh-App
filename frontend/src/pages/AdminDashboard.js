@@ -100,6 +100,25 @@ const AdminDashboard = () => {
     fetchUserData(user.id);
   };
 
+  const handleDeleteClick = (user) => {
+    setDeletingUser(user);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return;
+    
+    try {
+      await axios.delete(`${API}/admin/user/${deletingUser.id}`);
+      toast.success(language === 'ar' ? 'تم حذف المستخدم' : 'User deleted successfully');
+      setShowDeleteConfirm(false);
+      setDeletingUser(null);
+      fetchData(); // Refresh the list
+    } catch (error) {
+      toast.error(language === 'ar' ? 'فشل حذف المستخدم' : 'Failed to delete user');
+    }
+  };
+
   const handleExport = async (type) => {
     try {
       const response = await axios.get(`${API}/admin/export/${type}`);
