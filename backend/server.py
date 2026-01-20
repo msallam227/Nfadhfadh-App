@@ -51,14 +51,14 @@ logger = logging.getLogger(__name__)
 # ==================== MODELS ====================
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
-    birthdate: str
-    country: str
-    city: str
-    occupation: str
-    gender: str
-    language: str = "en"
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6)
+    birthdate: str = Field(..., min_length=8)
+    country: str = Field(..., min_length=2)
+    city: str = Field(..., min_length=2)
+    occupation: str = Field(..., min_length=2)
+    gender: str = Field(..., pattern="^(male|female)$")
+    language: str = Field(default="en", pattern="^(en|ar)$")
 
 class UserLogin(BaseModel):
     username: str
