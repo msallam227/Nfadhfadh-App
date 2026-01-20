@@ -826,6 +826,23 @@ async def admin_get_users(admin: dict = Depends(get_admin_user)):
     users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
     return {"users": users}
 
+@api_router.delete("/admin/user/{user_id}")
+async def admin_delete_user(user_id: str, admin: dict = Depends(get_admin_user)):
+    """Delete a user and all their data"""
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Delete all user data
+    await db.users.delete_one({"id": user_id})
+    await db.mood_checkins.delete_many({"user_id": user_id})
+    await db.diary_entries.delete_many({"user_id": user_id})
+    await db.chat_messages.delete_many({"user_id": user_id})
+    await db.payment_transactions.delete_many({"user_id": user_id})
+    await db.notification_settings.delete_many({"user_id": user_id})
+    
+    return {"message": "User and all associated data deleted", "user_id": user_id}
+
 @api_router.get("/admin/analytics")
 async def admin_get_analytics(admin: dict = Depends(get_admin_user)):
     total_users = await db.users.count_documents({})
