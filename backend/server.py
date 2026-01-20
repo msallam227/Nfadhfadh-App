@@ -119,6 +119,14 @@ class LanguageUpdate(BaseModel):
 class PaymentRequest(BaseModel):
     origin_url: str
 
+class NotificationSettings(BaseModel):
+    enabled: bool = True
+    reminder_time: str = "09:00"  # HH:MM format
+    timezone: str = "UTC"
+
+class WeeklyReportRequest(BaseModel):
+    week_start: Optional[str] = None  # ISO date string
+
 # ==================== AUTH HELPERS ====================
 
 def hash_password(password: str) -> str:
