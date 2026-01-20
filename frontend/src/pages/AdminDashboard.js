@@ -646,6 +646,41 @@ const AdminDashboard = () => {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              {language === 'ar' ? 'تأكيد الحذف' : 'Confirm Delete'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-slate-600">
+              {language === 'ar' 
+                ? `هل أنت متأكد من حذف المستخدم "${deletingUser?.username}"؟ سيتم حذف جميع بياناته بما في ذلك التسجيلات واليوميات والمحادثات.`
+                : `Are you sure you want to delete "${deletingUser?.username}"? All their data including check-ins, diary entries, and chats will be permanently deleted.`}
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="rounded-xl"
+            >
+              {language === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button
+              onClick={handleDeleteUser}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-xl"
+              data-testid="confirm-delete-btn"
+            >
+              {language === 'ar' ? 'حذف' : 'Delete'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
